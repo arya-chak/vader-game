@@ -2,6 +2,8 @@
 Opening Scene: The Operating Table
 Vader's first moments in the suit - the iconic scene from Episode III.
 This is where the player's journey begins.
+
+FIXED: Properly transitions to Kyber Crystal mission instead of mentioning wrong Jedi.
 """
 
 from typing import Dict
@@ -537,11 +539,11 @@ def create_opening_scenes() -> Dict[str, Scene]:
             ),
             create_dialogue(
                 "Palpatine",
-                "Come, my apprentice. The galaxy awaits your wrath. The Jedi will pay for what has been done to you.",
+                "Come, my apprentice. The Jedi will pay for what has been done to you.",
                 emotion="commanding"
             )
         ],
-        auto_next="first_mission_briefing"
+        auto_next="first_lesson"
     )
     
     # ================================================================
@@ -580,11 +582,11 @@ def create_opening_scenes() -> Dict[str, Scene]:
             ),
             create_dialogue(
                 "Palpatine",
-                "There is still much work to do. The Jedi must be eliminated. All of them. You will hunt them down.",
+                "Come. There is much you must learn about the ways of the Sith.",
                 emotion="commanding"
             )
         ],
-        auto_next="first_mission_briefing"
+        auto_next="first_lesson"
     )
     
     # ================================================================
@@ -623,11 +625,11 @@ def create_opening_scenes() -> Dict[str, Scene]:
             ),
             create_dialogue(
                 "Palpatine",
-                "Now... rise. You have work to do. Perhaps hunting Jedi will improve your mood.",
+                "Now... rise. You have much to learn if you are to serve me.",
                 emotion="dismissive"
             )
         ],
-        auto_next="first_mission_briefing"
+        auto_next="first_lesson"
     )
     
     # ================================================================
@@ -700,50 +702,61 @@ def create_opening_scenes() -> Dict[str, Scene]:
     )
     
     # ================================================================
-    # SCENE 6: FIRST MISSION BRIEFING
-    # Introduction to the gameplay loop
+    # SCENE 6: FIRST LESSON - TRANSITION TO KYBER MISSION
+    # Instead of specific mission briefing, Palpatine hints at training
     # ================================================================
     
-    scenes["first_mission_briefing"] = Scene(
-        id="first_mission_briefing",
-        title="Your First Mission",
-        description="Palpatine gives you your first assignment as Darth Vader.",
-        location="Emperor's Throne Room, Imperial Palace",
+    scenes["first_lesson"] = Scene(
+        id="first_lesson",
+        title="The First Lesson",
+        description="Palpatine leads you from the medical facility. Your training begins.",
+        location="Imperial Palace, Coruscant",
         scene_type="dialogue",
         dialogue=[
             create_dialogue(
-                "Palpatine",
-                "The Jedi have scattered like rats. But they cannot hide forever. I have located one.",
-                emotion="satisfied"
+                "Narrator",
+                "The Emperor leads you through the corridors of the Imperial Palace. Your mechanical steps echo in the silence.",
+                emotion="ominous"
             ),
             create_dialogue(
                 "Palpatine",
-                "A Jedi Knight named Haron Tavus. He is hiding in the industrial sector of Coruscant. Take a unit of clone troopers. Eliminate him.",
-                emotion="commanding"
+                "You have taken your first steps into a larger world, Lord Vader. But you are not yet complete.",
+                emotion="teaching"
             ),
             create_dialogue(
                 "Vader",
-                "It will be done, my Master.",
-                emotion="obedient",
-                thought="A Jedi. Good. I need to kill something."
+                "Master?",
+                emotion="questioning",
+                thought="What more does he want from me? I have given him everything."
             ),
             create_dialogue(
                 "Palpatine",
-                "Do not fail me, Lord Vader. Prove your worth.",
-                emotion="warning"
+                "A Sith is not truly a Sith until they have claimed their weapon. You carry a Jedi's lightsaber still.",
+                emotion="pointed"
+            ),
+            create_dialogue(
+                "Vader",
+                "*looks at the green blade at his belt*",
+                emotion="understanding",
+                thought="A Jedi's weapon. I took it from the temple. But it's not... mine."
+            ),
+            create_dialogue(
+                "Palpatine",
+                "Come. There is something you must see. A lesson about what it means to be Sith.",
+                emotion="commanding"
             )
         ],
         choices=[
             create_choice(
-                "begin_mission",
-                "Accept the mission",
+                "follow_palpatine",
+                "Follow the Emperor",
                 ChoiceType.DIALOGUE,
                 next_scene="tutorial_complete",
-                set_flags=["first_mission_accepted"],
+                set_flags=["first_lesson_begun"],
                 response=create_dialogue(
                     "Vader",
-                    "As you wish.",
-                    emotion="cold"
+                    "Lead on, my Master.",
+                    emotion="obedient"
                 )
             )
         ]
@@ -751,32 +764,32 @@ def create_opening_scenes() -> Dict[str, Scene]:
     
     # ================================================================
     # SCENE 7: TUTORIAL COMPLETE
-    # Transition to gameplay
+    # Transition to gameplay - now properly sets up Kyber mission
     # ================================================================
     
     scenes["tutorial_complete"] = Scene(
         id="tutorial_complete",
-        title="The Hunt Begins",
-        description="Your training is complete. The hunt begins.",
+        title="The Path Forward",
+        description="Your journey as Darth Vader begins. But first, you must learn what it means to be Sith.",
         scene_type="cutscene",
         dialogue=[
             create_dialogue(
                 "Narrator",
-                "And so begins the hunt. Darth Vader, Dark Lord of the Sith, will pursue the Jedi to the ends of the galaxy.",
+                "The opening is complete. You are Darth Vader now - Dark Lord of the Sith.",
+                emotion="dramatic"
+            ),
+            create_dialogue(
+                "Narrator",
+                "But your transformation is not finished. The Emperor has lessons to teach you.",
                 emotion="ominous"
             ),
             create_dialogue(
                 "Narrator",
-                "But the question remains: Is he a loyal servant of the Emperor... or something more?",
-                emotion="mysterious"
-            ),
-            create_dialogue(
-                "Narrator",
-                "Your choices will determine his fate.",
-                emotion="dramatic"
+                "About power. About sacrifice. About what it truly means to serve the dark side.",
+                emotion="foreboding"
             )
         ],
-        auto_next=None  # End of opening, transition to game loop
+        auto_next=None  # End of opening, transition to Kyber mission
     )
     
     return scenes

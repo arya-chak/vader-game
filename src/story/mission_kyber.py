@@ -819,7 +819,7 @@ def create_act4_scenes() -> Dict[str, Scene]:
             ),
             create_dialogue(
                 "Narrator",
-                "[COMBAT: First Duel with Kirak Infil'a - You will lose this fight]",
+                "[COMBAT: First Duel with Kirak Infil'a]",
                 emotion="epic"
             )
         ],
