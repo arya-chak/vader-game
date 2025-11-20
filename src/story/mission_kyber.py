@@ -565,6 +565,10 @@ def create_act3_scenes() -> Dict[str, Scene]:
                 emotion="calm"
             )
         ],
+        trigger_combat={
+            "enemy_types": ["clone_trooper", "clone_trooper", "clone_trooper", "clone_trooper"],
+            "difficulty": "easy"
+        },
         auto_next="kyber_archive_search"
     )
     
@@ -816,17 +820,12 @@ def create_act4_scenes() -> Dict[str, Scene]:
                 "Infil'a",
                 "You want my lightsaber. You will not have it!",
                 emotion="determined"
-            ),
-            create_dialogue(
-                "Narrator",
-                "[COMBAT: First Duel with Kirak Infil'a]",
-                emotion="epic"
             )
         ],
         trigger_combat={
-            "enemy_type": "infila_first_duel",
-            "scripted_loss": True,
-            "loss_trigger": "leg_breaks"
+            "boss_fight": True,
+            "boss_id": "infila_first",
+            "scripted_loss": True
         },
         auto_next="kyber_first_defeat"
     )
@@ -1047,17 +1046,12 @@ def create_act6_scenes() -> Dict[str, Scene]:
                 "*presses the attack*",
                 emotion="aggressive",
                 thought="He's skilled. But I've fought Dooku. I've dueled Obi-Wan. He is nothing."
-            ),
-            create_dialogue(
-                "Narrator",
-                "[COMBAT: Second Duel with Kirak Infil'a - Phase 1]",
-                emotion="epic"
             )
         ],
         trigger_combat={
-            "enemy_type": "infila_final_duel",
-            "phase": 1,
-            "hp_threshold_for_choice": 60
+            "boss_fight": True,
+            "boss_id": "infila_final_phase1",
+            "hp_threshold_for_pause": 60  # PAUSE at 60% HP for story choice
         },
         auto_next="kyber_water_tank_choice"
     )
@@ -1157,45 +1151,14 @@ def create_act6_scenes() -> Dict[str, Scene]:
                 "Infil'a",
                 "NO! *reaches out with the Force to stop the destruction*",
                 emotion="horrified"
-            ),
-            create_dialogue(
-                "Vader",
-                "*uses Force Pull to rip Infil'a's lightsaber from his belt*",
-                emotion="ruthless",
-                thought="Distracted. As I knew he would be. Weakness."
-            ),
-            create_dialogue(
-                "Narrator",
-                "You catch his lightsaber. Blue blade in your hand. Your prize.",
-                emotion="triumphant"
-            ),
-            create_dialogue(
-                "Infil'a",
-                "*still trying to save civilians below* Please! Stop this! They're innocent!",
-                emotion="desperate"
-            ),
-            create_dialogue(
-                "Vader",
-                "*Force chokes Infil'a, lifting him from the dam*",
-                emotion="cold",
-                thought="Innocent. There are no innocents. Not anymore."
-            ),
-            create_dialogue(
-                "Infil'a",
-                "*choking* You... monster...",
-                emotion="dying"
-            ),
-            create_dialogue(
-                "Vader",
-                "*crushes his throat*",
-                emotion="emotionless"
-            ),
-            create_dialogue(
-                "Narrator",
-                "Infil'a's body falls into the flooded wreckage below. The city is silent except for the rushing water.",
-                emotion="grim"
             )
         ],
+        trigger_combat={
+            "boss_fight": True,
+            "boss_id": "infila_final_easy",
+            "continue_from_phase1": True,
+            "starting_hp_percent": 60  # Resume where Phase 1 left off
+        },
         auto_next="kyber_aftermath_victory"
     )
     
@@ -1222,17 +1185,13 @@ def create_act6_scenes() -> Dict[str, Scene]:
                 "Vader",
                 "I choose to defeat you myself.",
                 emotion="cold pride"
-            ),
-            create_dialogue(
-                "Narrator",
-                "[COMBAT: Second Duel with Kirak Infil'a - Phase 2, Harder difficulty]",
-                emotion="epic"
             )
         ],
         trigger_combat={
-            "enemy_type": "infila_final_duel",
-            "phase": 2,
-            "difficulty": "hard"
+            "boss_fight": True,
+            "boss_id": "infila_final_hard",
+            "continue_from_phase1": True,
+            "starting_hp_percent": 60  # Resume where Phase 1 left off
         },
         auto_next="kyber_honor_victory"
     )
