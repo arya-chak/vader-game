@@ -565,10 +565,6 @@ def create_act3_scenes() -> Dict[str, Scene]:
                 emotion="calm"
             )
         ],
-        trigger_combat={
-            "enemy_types": ["clone_trooper", "clone_trooper", "clone_trooper", "clone_trooper"],
-            "difficulty": "easy"
-        },
         auto_next="kyber_archive_search"
     )
     
@@ -627,6 +623,10 @@ def create_act3_scenes() -> Dict[str, Scene]:
                 emotion="dark"
             )
         ],
+        trigger_combat={
+            "enemy_types": ["clone_trooper", "clone_trooper", "clone_trooper", "clone_trooper"],
+            "difficulty": "easy"
+        },
         auto_next="kyber_archive_search"
     )
     

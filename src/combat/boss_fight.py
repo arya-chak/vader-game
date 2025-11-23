@@ -2,6 +2,8 @@
 Boss Fight System for Darth Vader RPG
 Special mechanics for boss encounters, scripted events, and mid-combat choices.
 Includes the Kirak Infil'a duels from the Kyber Crystal mission.
+
+UPDATED: Now includes Phase 1 and Phase 2 boss variants for mid-combat story choices.
 """
 
 from typing import Dict, List, Optional, Tuple, Callable, Any
@@ -471,6 +473,10 @@ def create_infila_final_duel(water_tank_destroyed: bool = False) -> BossEnemy:
     """
     Final duel with Kirak Infil'a at Am'balaar City.
     Difficulty depends on whether Vader destroyed the water tank.
+    
+    NOTE: This is the LEGACY version. For mid-combat story choices, use:
+    - create_infila_final_phase1() for first half of fight
+    - create_infila_final_phase2() for second half based on choice
     """
     
     # Phase 1 actions
@@ -612,6 +618,258 @@ def create_infila_final_duel(water_tank_destroyed: bool = False) -> BossEnemy:
 
 
 # ============================================================
+# NEW: PHASE-BASED BOSS FUNCTIONS FOR MID-COMBAT CHOICES
+# ============================================================
+
+def create_infila_final_phase1() -> BossEnemy:
+    """
+    Phase 1 of final duel with Kirak Infil'a.
+    This boss fights until 60% HP, then combat pauses for the water tank choice.
+    
+    Use this for: kyber_final_duel_start scene
+    """
+    
+    actions = [
+        BossAction(
+            id="soresu_mastery",
+            name="Form III: Soresu Mastery",
+            description="Infil'a's perfected defensive technique",
+            damage=0,
+            animation="⚔️  Infil'a flows into Soresu stance - every strike slides off his perfect defense!",
+            cooldown_turns=3
+        ),
+        BossAction(
+            id="counter_slash",
+            name="Counter Slash",
+            description="Parries and counters with precision",
+            damage=38,
+            animation="⚡ Infil'a deflects your blade and counters with lightning speed!",
+            cooldown_turns=2
+        ),
+        BossAction(
+            id="force_balance",
+            name="Force Balance",
+            description="Centers himself in the Force, increasing defense",
+            damage=20,
+            animation="🌟 Infil'a draws upon the light side - his presence becomes resolute!",
+            cooldown_turns=4
+        )
+    ]
+    
+    triggers = [
+        BossTrigger(
+            id="duel_begins",
+            trigger_type=BossEvent.DIALOGUE,
+            turn_number=1,
+            dialogue="You survived the fall. The dark side sustains you... but it also blinds you."
+        ),
+        BossTrigger(
+            id="vader_presses",
+            trigger_type=BossEvent.DIALOGUE,
+            hp_threshold=80,
+            dialogue="Your anger makes you predictable. Every strike telegraphed by your rage."
+        ),
+        BossTrigger(
+            id="duel_intensifies",
+            trigger_type=BossEvent.DIALOGUE,
+            hp_threshold=65,
+            dialogue="I have trained for decades. You have worn that suit for mere days. You cannot win."
+        )
+    ]
+    
+    return BossEnemy(
+        id="infila_final_phase1",
+        name="Kirak Infil'a",
+        title="Jedi Master - The Even Duel",
+        max_hp=150,
+        current_hp=150,
+        base_damage=32,
+        defense=18,
+        current_phase=BossPhase.PHASE_1,
+        phase_transitions={},  # No phase transitions - this boss ends at 60% HP
+        special_actions=actions,
+        force_resistance=70,
+        lightsaber_resistance=22,
+        aggressive=False,  # Defensive master
+        adaptive=True,
+        triggers=triggers
+    )
+
+
+def create_infila_final_phase2(water_tank_destroyed: bool, starting_hp_percent: int = 60) -> BossEnemy:
+    """
+    Phase 2 of final duel with Kirak Infil'a - resumes after water tank choice.
+    
+    Args:
+        water_tank_destroyed: True = easier boss (distracted), False = harder boss (focused)
+        starting_hp_percent: What % HP the boss starts at (default 60% from Phase 1 pause)
+    
+    Use this for:
+        - kyber_massacre_path (water_tank_destroyed=True)
+        - kyber_honor_path (water_tank_destroyed=False)
+    """
+    
+    if water_tank_destroyed:
+        # MASSACRE PATH - EASY MODE
+        # Infil'a is devastated and distracted
+        
+        max_hp = 120
+        current_hp = int(max_hp * (starting_hp_percent / 100))
+        defense = 12  # Reduced defense
+        
+        actions = [
+            BossAction(
+                id="broken_defense",
+                name="Broken Defense",
+                description="Attempts to defend but his heart isn't in it",
+                damage=18,
+                animation="💔 Infil'a raises his blade but his eyes keep darting to the city below...",
+                cooldown_turns=1
+            ),
+            BossAction(
+                id="anguished_strike",
+                name="Anguished Strike",
+                description="Strikes in grief and fury",
+                damage=30,
+                animation="😭 'You MONSTER! They were INNOCENT!' - Infil'a attacks through tears of rage!",
+                cooldown_turns=2
+            ),
+            BossAction(
+                id="desperate_plea",
+                name="Desperate Plea",
+                description="Begs you to stop the slaughter",
+                damage=10,
+                animation="😰 'Please! There are still people alive down there! Let me save them!'",
+                cooldown_turns=3
+            )
+        ]
+        
+        triggers = [
+            BossTrigger(
+                id="massacre_horror",
+                trigger_type=BossEvent.DIALOGUE,
+                turn_number=1,
+                dialogue="The screams... you destroyed the tank! Hundreds will die!"
+            ),
+            BossTrigger(
+                id="divided_focus",
+                trigger_type=BossEvent.DIALOGUE,
+                hp_threshold=40,
+                dialogue="I... I have to help them. I must—but you won't let me, will you?"
+            ),
+            BossTrigger(
+                id="final_grief",
+                trigger_type=BossEvent.DIALOGUE,
+                hp_threshold=15,
+                dialogue="At least... I tried... I tried to save them..."
+            )
+        ]
+        
+    else:
+        # HONOR PATH - HARD MODE
+        # Infil'a is fully focused and grateful
+        
+        max_hp = 150
+        current_hp = int(max_hp * (starting_hp_percent / 100))
+        defense = 18  # Full defense
+        
+        actions = [
+            BossAction(
+                id="grateful_fury",
+                name="Righteous Determination",
+                description="Fights with renewed purpose",
+                damage=45,
+                force_drain=15,
+                animation="🌟 'You spared them... but I still must stop you!' - Infil'a attacks with fierce resolve!",
+                cooldown_turns=3
+            ),
+            BossAction(
+                id="form5_shien",
+                name="Form V: Shien",
+                description="Switches to aggressive assault",
+                damage=42,
+                stun_chance=25,
+                animation="⚔️  Infil'a abandons pure defense - his blade becomes a whirlwind of strikes!",
+                cooldown_turns=2
+            ),
+            BossAction(
+                id="jedi_conviction",
+                name="Jedi's Conviction",
+                description="Channels the light side with complete focus",
+                damage=38,
+                animation="✨ 'The Force is with me. And I am one with the Force!' - His blade blazes with light!",
+                cooldown_turns=2
+            ),
+            BossAction(
+                id="final_stand",
+                name="Final Stand",
+                description="All-out desperate assault",
+                damage=65,
+                suit_damage=12,
+                animation="💫 'For all those you've killed! For the Order! For the Republic!' - Everything in one strike!",
+                requires_hp_below=20,
+                cooldown_turns=5
+            )
+        ]
+        
+        triggers = [
+            BossTrigger(
+                id="honor_acknowledged",
+                trigger_type=BossEvent.DIALOGUE,
+                turn_number=1,
+                dialogue="You... chose not to harm them. Perhaps there is still a spark of Anakin in you."
+            ),
+            BossTrigger(
+                id="renewed_focus",
+                trigger_type=BossEvent.DIALOGUE,
+                hp_threshold=40,
+                dialogue="But a single act of mercy does not redeem a lifetime of darkness!"
+            ),
+            BossTrigger(
+                id="warrior_respect",
+                trigger_type=BossEvent.DIALOGUE,
+                hp_threshold=15,
+                dialogue="You... are stronger than I thought. Perhaps... you deserved that crystal after all..."
+            )
+        ]
+    
+    return BossEnemy(
+        id="infila_final_phase2_easy" if water_tank_destroyed else "infila_final_phase2_hard",
+        name="Kirak Infil'a",
+        title="Jedi Master - The Final Moments",
+        max_hp=max_hp,
+        current_hp=current_hp,
+        base_damage=35 if not water_tank_destroyed else 25,
+        defense=defense,
+        current_phase=BossPhase.PHASE_2,
+        phase_transitions={
+            BossPhase.FINAL: 20
+        },
+        special_actions=actions,
+        force_resistance=70 if not water_tank_destroyed else 50,
+        lightsaber_resistance=22 if not water_tank_destroyed else 15,
+        aggressive=not water_tank_destroyed,
+        adaptive=True,
+        triggers=triggers
+    )
+
+
+def should_pause_combat_for_story(boss: BossEnemy, pause_threshold: int = 60) -> bool:
+    """
+    Helper function to check if combat should pause for mid-combat story choice.
+    
+    Args:
+        boss: The boss being fought
+        pause_threshold: HP percentage at which to pause (default 60)
+    
+    Returns:
+        True if combat should pause now
+    """
+    hp_percent = boss.get_hp_percentage()
+    return hp_percent <= pause_threshold and hp_percent > (pause_threshold - 5)
+
+
+# ============================================================
 # EXAMPLE: OTHER BOSS TEMPLATES
 # ============================================================
 
@@ -683,70 +941,11 @@ def create_grand_inquisitor() -> BossEnemy:
 # ============================================================
 
 if __name__ == "__main__":
-    import sys
-    import os
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-    
-    from character.vader import DarthVader
-    from character.suit_system import SuitSystem
-    
     print("=== BOSS FIGHT SYSTEM TEST ===\n")
-    
-    # Create systems
-    vader = DarthVader()
-    suit = SuitSystem()
-    boss_system = BossFightSystem(vader, suit)
-    
-    # Test First Infil'a Duel (scripted loss)
-    print("--- Creating First Infil'a Duel ---")
-    infila_first = create_infila_first_duel()
-    print(f"Boss: {infila_first.name}")
-    print(f"Title: {infila_first.title}")
-    print(f"HP: {infila_first.current_hp}/{infila_first.max_hp}")
-    print(f"Special Actions: {len(infila_first.special_actions)}")
-    for action in infila_first.special_actions:
-        print(f"  - {action.name}: {action.description}")
-    print(f"Triggers: {len(infila_first.triggers)}")
-    print(f"Scripted Loss: Yes")
-    
-    print("\n--- Creating Final Infil'a Duel (Honor Path) ---")
-    infila_final_honor = create_infila_final_duel(water_tank_destroyed=False)
-    print(f"Boss: {infila_final_honor.name}")
-    print(f"HP: {infila_final_honor.current_hp}/{infila_final_honor.max_hp}")
-    print(f"Defense: {infila_final_honor.defense}")
-    print(f"Special Actions: {len(infila_final_honor.special_actions)}")
-    print(f"Difficulty: HARD (focused fighter)")
-    
-    print("\n--- Creating Final Infil'a Duel (Massacre Path) ---")
-    infila_final_massacre = create_infila_final_duel(water_tank_destroyed=True)
-    print(f"Boss: {infila_final_massacre.name}")
-    print(f"HP: {infila_final_massacre.current_hp}/{infila_final_massacre.max_hp}")
-    print(f"Defense: {infila_final_massacre.defense}")
-    print(f"Special Actions: {len(infila_final_massacre.special_actions)}")
-    print(f"Difficulty: EASY (distracted by saving civilians)")
-    
-    print("\n--- Testing Boss Fight Initialization ---")
-    result = boss_system.start_boss_fight(infila_first, scripted_loss=True)
-    print(f"Result: {result['message']}")
-    print(f"Scripted Loss: {result['scripted_loss']}")
-    
-    print("\n--- Testing Boss Special Action ---")
-    action = infila_first.special_actions[0]  # Form III Defense
-    boss_system.turn_number = 2
-    result = boss_system.execute_boss_action(action)
-    print(f"Action: {result['action_name']}")
-    print(f"Success: {result['success']}")
-    
-    print("\n--- Simulating Phase Transition ---")
-    infila_first.current_hp = 60  # Trigger phase 2
-    damage, killed = infila_first.take_damage(20)
-    print(f"Damage dealt: {damage}")
-    print(f"Current Phase: {infila_first.current_phase}")
-    print(f"HP: {infila_first.current_hp}/{infila_first.max_hp} ({infila_first.get_hp_percentage()}%)")
-    
-    print("\n=== BOSS SYSTEM READY ===")
-    print(f"✓ Infil'a First Duel: Scripted loss encounter")
-    print(f"✓ Infil'a Final Duel: Two difficulty paths")
-    print(f"✓ Phase transitions working")
-    print(f"✓ Special actions implemented")
-    print(f"✓ Trigger system functional")
+    print("✓ Boss Fight System loaded")
+    print("✓ Infil'a First Duel available")
+    print("✓ Infil'a Final Duel (legacy) available")
+    print("✓ Infil'a Final Phase 1 available (NEW)")
+    print("✓ Infil'a Final Phase 2 available (NEW)")
+    print("✓ Mid-combat pause system ready")
+    print("\nAll boss functions operational!")
