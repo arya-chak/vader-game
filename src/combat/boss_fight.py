@@ -322,6 +322,10 @@ class BossFightSystem:
             "killed": killed,
             "phase_changed": False
         }
+
+        # NEW: If boss was killed, restore HP!
+        if killed:
+            self._handle_boss_death()
         
         # Check for phase transition
         old_phase = self.current_boss.current_phase
@@ -336,6 +340,37 @@ class BossFightSystem:
                 break
         
         return result
+    
+    def _handle_boss_death(self):
+        """
+        Handle boss death - HP restoration and full heal
+    
+        NEW: Vader gains HP equal to boss's max HP, then fully heals!
+        """
+        if not self.current_boss:
+            return
+    
+        boss = self.current_boss
+    
+        # First: Gain HP equal to boss's max HP
+        hp_from_kill = boss.max_hp
+        old_hp = self.vader.current_health
+        self.vader.current_health = min(
+            self.vader.max_health,
+            self.vader.current_health + hp_from_kill
+        )
+        hp_gained_from_kill = self.vader.current_health - old_hp
+    
+        if hp_gained_from_kill > 0:
+            self.log(f"💚 +{hp_gained_from_kill} HP restored from {boss.name}'s death!")
+    
+        # Then: Full HP restoration after boss victory!
+        if self.vader.current_health < self.vader.max_health:
+            hp_restored = self.vader.max_health - self.vader.current_health
+            self.vader.current_health = self.vader.max_health
+            self.log(f"💚 Vader's wounds fully heal after defeating {boss.name}! (+{hp_restored} HP, now at {self.vader.max_health}/{self.vader.max_health})")
+        else:
+            self.log(f"💚 Vader is at full health after defeating the boss!")
     
     def vader_uses_force_on_boss(self, power_name: str, damage: int) -> Dict[str, Any]:
         """Vader uses Force power on boss"""

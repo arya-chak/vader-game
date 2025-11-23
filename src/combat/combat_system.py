@@ -1,6 +1,9 @@
 """
 Combat System for Darth Vader
 Turn-based tactical combat with Force powers, lightsaber combat, and enemy AI.
+
+UPDATED: Vader now gains HP equal to enemy's max HP on each kill,
+         and fully restores HP after combat victory.
 """
 
 from typing import Dict, List, Optional, Tuple, Any
@@ -432,7 +435,11 @@ class CombatSystem:
         return actual_damage, killed
     
     def _handle_enemy_death(self, enemy: Enemy):
-        """Handle enemy death - XP, FP bonus, loot"""
+        """
+        Handle enemy death - XP, FP bonus, HP restoration, loot
+        
+        NEW: Vader now gains HP equal to the slain enemy's max HP!
+        """
         self.combat_state.enemies_killed += 1
         
         # Force Point bonus
@@ -444,6 +451,18 @@ class CombatSystem:
         
         if fp_bonus > 0:
             self.log(f"   (+{fp_bonus} FP from kill)")
+        
+        # NEW: Health restoration from kill!
+        hp_gained = enemy.max_hp
+        old_hp = self.vader.current_health
+        self.vader.current_health = min(
+            self.vader.max_health,
+            self.vader.current_health + hp_gained
+        )
+        actual_hp_gained = self.vader.current_health - old_hp
+        
+        if actual_hp_gained > 0:
+            self.log(f"   💚 +{actual_hp_gained} HP restored from {enemy.name}'s death!")
         
         # Credits and XP
         self.suit.credits += enemy.credits_drop
@@ -567,13 +586,23 @@ class CombatSystem:
         self._check_victory_conditions()
     
     def _check_victory_conditions(self):
-        """Check if combat should end"""
+        """
+        Check if combat should end
+        
+        NEW: Vader's HP is fully restored on victory!
+        """
         alive_enemies = [e for e in self.combat_state.enemies if e.is_alive]
         
         if len(alive_enemies) == 0:
             self.combat_state.combat_active = False
             self.combat_state.victory_type = "total_victory"
             self.log(f"\n🏆 VICTORY! All enemies defeated.")
+            
+            # NEW: Full HP restoration after combat victory!
+            if self.vader.current_health < self.vader.max_health:
+                hp_restored = self.vader.max_health - self.vader.current_health
+                self.vader.current_health = self.vader.max_health
+                self.log(f"💚 Vader's wounds heal after victory! (+{hp_restored} HP, now at {self.vader.max_health}/{self.vader.max_health})")
         
         # Check if all remaining enemies fled or terrified
         non_fled = [e for e in alive_enemies if not e.is_feared or e.morale > 0]
@@ -581,6 +610,12 @@ class CombatSystem:
             self.combat_state.combat_active = False
             self.combat_state.victory_type = "intimidation_victory"
             self.log(f"\n😱 INTIMIDATION VICTORY! Enemies flee in terror.")
+            
+            # NEW: Full HP restoration on intimidation victory too!
+            if self.vader.current_health < self.vader.max_health:
+                hp_restored = self.vader.max_health - self.vader.current_health
+                self.vader.current_health = self.vader.max_health
+                self.log(f"💚 Vader's wounds heal after victory! (+{hp_restored} HP, now at {self.vader.max_health}/{self.vader.max_health})")
     
     def _get_enemy_by_id(self, enemy_id: str) -> Optional[Enemy]:
         """Get enemy by ID"""
