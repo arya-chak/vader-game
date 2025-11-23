@@ -4,7 +4,7 @@ Clean layout focused on storytelling - no HUD clutter.
 """
 
 import pygame
-from ..utils import BLACK, WHITE, normal_font
+from ..utils import BLACK, WHITE, VADER_BLACK, normal_font, small_font
 from ..components import TextBox, ChoiceButton
 
 
@@ -98,19 +98,26 @@ class StoryScreen:
     def render(self, surface: pygame.Surface):
         """Draw the story screen"""
         surface.fill(BLACK)
-        
+    
         # Scene title at top
         if self.scene_title:
             title_font = pygame.font.SysFont("arial", 28, bold=True)
             title_surface = title_font.render(self.scene_title, True, WHITE)
             title_rect = title_surface.get_rect(center=(self.width // 2, 50))
             surface.blit(title_surface, title_rect)
-        
+    
         # TODO: Scene image/background will go here (upper portion)
-        
+    
         # Dialogue box
         self.dialogue_box.render(surface)
-        
-        # Choice buttons
-        for button in self.current_choices:
-            button.render(surface)
+    
+        # Choice buttons OR "Press ENTER" prompt
+        if self.current_choices:
+            for button in self.current_choices:
+                button.render(surface)
+        else:
+            # Show "Press ENTER to continue" at bottom
+            prompt_font = small_font()
+            prompt_text = prompt_font.render("Press ENTER to continue...", True, WHITE)
+            prompt_rect = prompt_text.get_rect(center=(self.width // 2, self.height - 50))
+            surface.blit(prompt_text, prompt_rect)
