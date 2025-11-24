@@ -37,6 +37,8 @@ class CombatScreen:
         
         # Combat state
         self.enemies = []
+        self.boss = None
+        self.is_boss_fight = False
         self.current_turn = 1
         self.combat_log = []
         
@@ -169,36 +171,50 @@ class CombatScreen:
         panel_rect = pygame.Rect(enemy_x, 10, 400, 400)
         pygame.draw.rect(surface, (20, 20, 20), panel_rect)
         pygame.draw.rect(surface, WHITE, panel_rect, 2)
-        
+    
         # Title
         font = normal_font()
-        title = font.render("ENEMIES", True, IMPERIAL_RED)
+        if self.is_boss_fight and self.boss:
+            title = font.render(f"👑 BOSS: {self.boss.name}", True, SITH_RED)
+        else:
+            title = font.render("ENEMIES", True, IMPERIAL_RED)
         surface.blit(title, (enemy_x + 20, 30))
-        
-        # Enemy list
+    
+        # Enemy/Boss display
         small = small_font()
         y_offset = 70
+    
+        if self.is_boss_fight and self.boss:
+            # Show boss info
+            name_text = small.render(self.boss.title, True, WHITE)
+            surface.blit(name_text, (enemy_x + 20, y_offset))
         
-        for i, enemy in enumerate(self.enemies):
-            if not enemy.is_alive:
-                # Dead enemy
-                text = small.render(f"{i+1}. {enemy.name}: ☠️ DEAD", True, GRAY)
-                surface.blit(text, (enemy_x + 20, y_offset))
-            else:
-                # Alive enemy
-                name_text = small.render(f"{i+1}. {enemy.name}", True, WHITE)
-                surface.blit(name_text, (enemy_x + 20, y_offset))
+            # HP bar
+            hp_text = small.render(f"HP: {self.boss.current_hp}/{self.boss.max_hp}", True, WHITE)
+            surface.blit(hp_text, (enemy_x + 20, y_offset + 25))
+        
+            # Phase
+            phase_text = small.render(f"Phase: {self.boss.current_phase.name}", True, IMPERIAL_RED)
+            surface.blit(phase_text, (enemy_x + 20, y_offset + 50))
+        
+        else:
+            # Regular enemies
+            for i, enemy in enumerate(self.enemies):
+                if not enemy.is_alive:
+                    text = small.render(f"{i+1}. {enemy.name}: ☠️ DEAD", True, GRAY)
+                    surface.blit(text, (enemy_x + 20, y_offset))
+                else:
+                    name_text = small.render(f"{i+1}. {enemy.name}", True, WHITE)
+                    surface.blit(name_text, (enemy_x + 20, y_offset))
                 
-                # HP bar
-                hp_text = small.render(f"HP: {enemy.current_hp}/{enemy.max_hp}", True, WHITE)
-                surface.blit(hp_text, (enemy_x + 20, y_offset + 20))
+                    hp_text = small.render(f"HP: {enemy.current_hp}/{enemy.max_hp}", True, WHITE)
+                    surface.blit(hp_text, (enemy_x + 20, y_offset + 20))
                 
-                # Status
-                if enemy.is_helpless():
-                    status = small.render("[HELPLESS]", True, SITH_RED)
-                    surface.blit(status, (enemy_x + 250, y_offset + 20))
+                    if hasattr(enemy, 'is_helpless') and enemy.is_helpless():
+                        status = small.render("[HELPLESS]", True, SITH_RED)
+                        surface.blit(status, (enemy_x + 250, y_offset + 20))
             
-            y_offset += 60
+                y_offset += 60
     
     def _render_combat_log(self, surface: pygame.Surface):
         """Render combat log"""
@@ -223,3 +239,15 @@ class CombatScreen:
             msg_text = font.render(message, True, GRAY)
             surface.blit(msg_text, (log_x + 10, y_offset))
             y_offset += 25
+
+    def set_boss(self, boss):
+        """
+        Set the boss enemy to display.
+    
+        Args:
+            boss: BossEnemy object from boss_fight system
+        """
+        self.boss = boss
+        self.is_boss_fight = True
+        # Convert boss to enemy-like object for display
+        self.enemies = [boss]  # Treat boss as single enemy for rendering

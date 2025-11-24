@@ -267,7 +267,7 @@ class GameWindow:
 
     def _start_combat(self, combat_trigger: dict, next_scene_after_combat: str):
         """
-        Start a combat encounter.
+        Start a combat encounter (regular or boss fight).
     
         Args:
             combat_trigger: Dict with combat parameters from scene
@@ -275,6 +275,12 @@ class GameWindow:
         """
         from src.combat.combat_system import CombatSystem, create_enemy, EnemyType
     
+        # Check if this is a boss fight
+        if combat_trigger.get('boss_fight'):
+            self._start_boss_fight(combat_trigger, next_scene_after_combat)
+            return
+    
+        # Regular combat
         # Initialize combat system if not already done
         if not hasattr(self, 'combat_system'):
             self.combat_system = CombatSystem(self.vader, self.suit, self.force_powers)
@@ -401,3 +407,161 @@ class GameWindow:
             print("💀 Combat Defeat")
             # Game over screen or respawn
             self._show_main_menu()
+
+    def _start_boss_fight(self, combat_trigger: dict, next_scene_after_combat: str):
+        """
+        Start a boss fight encounter.
+    
+        Args:
+            combat_trigger: Dict with boss fight parameters
+            next_scene_after_combat: Scene to go to after boss is defeated
+        """
+        from src.combat.boss_fight import (
+            BossFightSystem,
+            create_infila_first_duel,
+            create_infila_final_phase1,
+            create_infila_final_phase2
+        )
+    
+        # Initialize boss fight system if not already done
+        if not hasattr(self, 'boss_system'):
+            self.boss_system = BossFightSystem(self.vader, self.suit)
+    
+        boss_id = combat_trigger.get('boss_id')
+        scripted_loss = combat_trigger.get('scripted_loss', False)
+        hp_threshold_for_pause = combat_trigger.get('hp_threshold_for_pause')
+    
+        # Create the boss
+        boss = None
+        if boss_id == 'infila_first':
+            boss = create_infila_first_duel()
+        elif boss_id == 'infila_final_phase1':
+            boss = create_infila_final_phase1()
+        elif boss_id == 'infila_final_easy':
+            # Get saved HP from water tank choice
+            saved_hp = getattr(self, '_saved_boss_hp_percent', 60)
+            boss = create_infila_final_phase2(
+                water_tank_destroyed=True,
+                starting_hp_percent=saved_hp
+            )
+        elif boss_id == 'infila_final_hard':
+            saved_hp = getattr(self, '_saved_boss_hp_percent', 60)
+            boss = create_infila_final_phase2(
+                water_tank_destroyed=False,
+                starting_hp_percent=saved_hp
+            )
+    
+        if not boss:
+            print(f"❌ Unknown boss_id: {boss_id}")
+            return
+    
+        # Start boss fight
+        self.boss_system.start_boss_fight(boss, scripted_loss=scripted_loss)
+    
+        # Store combat info
+        self._scene_after_combat = next_scene_after_combat
+        self._boss_fight_active = True
+        self._boss_scripted_loss = scripted_loss
+        self._boss_hp_pause_threshold = hp_threshold_for_pause
+    
+        # Switch to combat screen with boss
+        combat_screen = CombatScreen(self, self.vader, self.suit, self.force_powers)
+        combat_screen.set_boss(boss)  # We'll add this method
+        combat_screen.on_action_selected = self._handle_boss_action
+        combat_screen.current_turn = self.boss_system.turn_number
+        combat_screen.is_boss_fight = True
+        self.current_screen = combat_screen
+    
+        print(f"👑 Boss fight started: {boss.name}")
+
+    def _handle_boss_action(self, action_id: str):
+        """Handle boss fight action selection"""
+        print(f"Boss combat action: {action_id}")
+    
+        # Check for HP pause threshold BEFORE action
+        if self._boss_hp_pause_threshold:
+            hp_percent = (self.boss_system.current_boss.current_hp / 
+                         self.boss_system.current_boss.max_hp) * 100
+        
+            if hp_percent <= self._boss_hp_pause_threshold:
+                # PAUSE for story choice!
+                self._saved_boss_hp_percent = hp_percent
+                self._boss_hp_pause_threshold = None  # Don't trigger again
+                print(f"⏸️ Combat paused at {hp_percent:.0f}% HP for story choice")
+            
+                # Return to story for the choice
+                if hasattr(self, '_scene_after_combat'):
+                    self._show_story_scene(self._scene_after_combat)
+                return
+    
+        result = None
+    
+        if action_id == "attack":
+            damage = 40 + (self.vader.stats.strength * 2)
+            result = self.boss_system.vader_attacks_boss(damage)
+            self.current_screen.add_to_log(f"⚔️ Dealt {result['damage']} damage to boss")
+    
+        elif action_id == "force_push":
+            result = self.boss_system.vader_uses_force_on_boss("Force Push", 15)
+            self.vader.spend_force_points(10)
+            self.current_screen.add_to_log(f"🌊 Force Push: {result['damage']} damage")
+    
+        elif action_id == "force_choke":
+            result = self.boss_system.vader_uses_force_on_boss("Force Choke", 35)
+            self.vader.spend_force_points(20)
+            self.current_screen.add_to_log(f"🫱 Force Choke: {result['damage']} damage")
+    
+        elif action_id == "defend":
+            self.current_screen.add_to_log("🛡️ Vader defends")
+    
+        elif action_id == "meditate":
+            self.vader.restore_force_points(30)
+            self.current_screen.add_to_log(f"🧘 Restored 30 FP")
+    
+        elif action_id == "retreat":
+            # Can't retreat from boss fights
+            self.current_screen.add_to_log("❌ Cannot retreat from this fight!")
+            return
+    
+        # Check for scripted loss BEFORE boss turn
+        if self._boss_scripted_loss and self.boss_system.check_scripted_loss():
+            print("💀 Scripted loss triggered!")
+            self.current_screen.add_to_log("Your leg gives out! You fall...")
+            # Wait a moment then return to story
+            pygame.time.wait(2000)
+            self._boss_fight_active = False
+            if hasattr(self, '_scene_after_combat'):
+                self._show_story_scene(self._scene_after_combat)
+            return
+    
+        # Boss's turn
+        boss_action = self.boss_system.boss_choose_action()
+        if boss_action:
+            result = self.boss_system.execute_boss_action(boss_action)
+            self.current_screen.add_to_log(f"🔥 {self.boss_system.current_boss.name} uses {boss_action.name}!")
+        
+            if result.get('vader_defeated'):
+                self._end_combat(victory=False, fled=False)
+                return
+        else:
+            # Basic boss attack
+            damage = self.boss_system.current_boss.base_damage
+            self.vader.take_damage(damage)
+            self.current_screen.add_to_log(f"⚔️ Boss attacks for {damage} damage")
+    
+        # End turn
+        self.boss_system.end_turn()
+        self.current_screen.current_turn = self.boss_system.turn_number
+    
+        # FP regeneration
+        fp_regen = self.vader.regenerate_force_points(self.suit)
+        if fp_regen > 0:
+            self.current_screen.add_to_log(f"🔵 +{fp_regen} FP")
+
+        # Check if boss defeated
+        if self.boss_system.current_boss.current_hp <= 0:
+            print("🏆 Boss Defeated!")
+            self._boss_fight_active = False
+            # Return to story
+            if hasattr(self, '_scene_after_combat'):
+                self._show_story_scene(self._scene_after_combat)
