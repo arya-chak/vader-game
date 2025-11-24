@@ -789,7 +789,7 @@ def create_opening_scenes() -> Dict[str, Scene]:
                 emotion="foreboding"
             )
         ],
-        auto_next=None  # End of opening, transition to Kyber mission
+        auto_next="kyber_balcony"  # End of opening, transition to Kyber mission
     )
     
     return scenes
