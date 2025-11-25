@@ -50,8 +50,9 @@ class GameWindow:
         self.current_scene_id = None
     
         # Story flow control
-        self._waiting_for_enter = False  # ADD THIS LINE
-        self._pending_scene = None       # ADD THIS LINE
+        self._waiting_for_enter = False
+        self._pending_scene = None
+        self._pending_combat = None
     
         # Start at main menu
         self._show_main_menu()
@@ -109,12 +110,6 @@ class GameWindow:
             print(f"Error loading scene: {msg}")
             return
 
-        # CHECK FOR COMBAT TRIGGER BEFORE SHOWING STORY
-        if hasattr(scene, 'trigger_combat') and scene.trigger_combat:
-            print(f"🗡️ Combat triggered in scene: {scene_id}")
-            self._start_combat(scene.trigger_combat, scene.auto_next)
-            return  # Don't show story screen, go straight to combat
-
         # Create/update story screen
         if not isinstance(self.current_screen, StoryScreen):
             story_screen = StoryScreen(self, self.vader, self.suit)
@@ -169,12 +164,24 @@ class GameWindow:
     
             self.current_screen.set_choices(choice_data)
             self._waiting_for_enter = False
+        
+            # CHECK FOR COMBAT TRIGGER - but only if scene also has auto_next
+            # This means combat happens AFTER player makes choice
+            if hasattr(scene, 'trigger_combat') and scene.trigger_combat and scene.auto_next:
+                self._pending_combat = (scene.trigger_combat, scene.auto_next)
 
         elif scene.auto_next:
-            # No choices, auto-advance - show "Press ENTER to continue"
-            self.current_screen.set_choices([])
-            self._waiting_for_enter = True
-            self._pending_scene = scene.auto_next
+            # CHECK FOR COMBAT TRIGGER BEFORE AUTO-ADVANCING
+            if hasattr(scene, 'trigger_combat') and scene.trigger_combat:
+                # Show dialogue, then "Press ENTER" will trigger combat
+                self.current_screen.set_choices([])
+                self._waiting_for_enter = True
+                self._pending_combat = (scene.trigger_combat, scene.auto_next)
+            else:
+                # No combat, just auto-advance
+                self.current_screen.set_choices([])
+                self._waiting_for_enter = True
+                self._pending_scene = scene.auto_next
         else:
             # No choices and no auto_next
             self.current_screen.set_choices([])
@@ -185,18 +192,26 @@ class GameWindow:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
-        
+    
             elif event.type == pygame.KEYDOWN:
                 # Handle ENTER key for auto-advance scenes
                 if event.key == pygame.K_RETURN or event.key == pygame.K_KP_ENTER:
-                    if self._waiting_for_enter and self._pending_scene:
-                        next_scene = self._pending_scene
-                        self._pending_scene = None
-                        self._waiting_for_enter = False
-                        self.current_scene_id = next_scene
-                        self._show_story_scene(next_scene)
-        
-            # Pass events to current screen if it exists
+                    if self._waiting_for_enter:
+                        # Check if there's pending combat
+                        if hasattr(self, '_pending_combat') and self._pending_combat:
+                            combat_trigger, next_scene = self._pending_combat
+                            self._pending_combat = None
+                            self._waiting_for_enter = False
+                            self._start_combat(combat_trigger, next_scene)
+                        # Otherwise check for pending scene
+                        elif self._pending_scene:
+                            next_scene = self._pending_scene
+                            self._pending_scene = None
+                            self._waiting_for_enter = False
+                            self.current_scene_id = next_scene
+                            self._show_story_scene(next_scene)
+    
+            # Pass events to current screen if it exists (INSIDE the for loop)
             if self.current_screen:
                 self.current_screen.handle_event(event)
     
@@ -481,17 +496,18 @@ class GameWindow:
         # Check for HP pause threshold BEFORE action
         if self._boss_hp_pause_threshold:
             hp_percent = (self.boss_system.current_boss.current_hp / 
-                         self.boss_system.current_boss.max_hp) * 100
-        
+                        self.boss_system.current_boss.max_hp) * 100
+    
             if hp_percent <= self._boss_hp_pause_threshold:
                 # PAUSE for story choice!
                 self._saved_boss_hp_percent = hp_percent
                 self._boss_hp_pause_threshold = None  # Don't trigger again
                 print(f"⏸️ Combat paused at {hp_percent:.0f}% HP for story choice")
-            
-                # Return to story for the choice
-                if hasattr(self, '_scene_after_combat'):
-                    self._show_story_scene(self._scene_after_combat)
+        
+                # FIX: Go to the water tank choice scene specifically
+                # The current scene (kyber_final_duel_start) has auto_next = kyber_water_tank_choice
+                self.current_scene_id = "kyber_water_tank_choice"  # EXPLICIT scene ID
+                self._show_story_scene("kyber_water_tank_choice")
                 return
     
         result = None
@@ -527,6 +543,11 @@ class GameWindow:
         if self._boss_scripted_loss and self.boss_system.check_scripted_loss():
             print("💀 Scripted loss triggered!")
             self.current_screen.add_to_log("Your leg gives out! You fall...")
+    
+            # RESTORE HP AFTER SCRIPTED LOSS
+            self.vader.current_health = self.vader.max_health
+            print(f"💚 HP restored to full after defeat: {self.vader.current_health}/{self.vader.max_health}")
+    
             # Wait a moment then return to story
             pygame.time.wait(2000)
             self._boss_fight_active = False
