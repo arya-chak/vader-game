@@ -44,6 +44,11 @@ from story.mission_kyber import create_kyber_mission_scenes
 from combat.combat_system import CombatSystem, create_enemy, EnemyType
 from combat.boss_fight import BossFightSystem, create_infila_first_duel, create_infila_final_phase1, create_infila_final_phase2
 
+# Inventory and character sheet (must be imported after src modules)
+sys.path.insert(0, os.path.dirname(__file__))
+from inventory_system import Inventory
+from character_sheet import CharacterSheet
+
 
 class TerminalGame:
     """
@@ -59,6 +64,8 @@ class TerminalGame:
         self.story_system = StorySystem(self.vader, self.suit)
         self.combat_system = CombatSystem(self.vader, self.suit, self.force_powers)
         self.boss_system = BossFightSystem(self.vader, self.suit)
+        self.inventory = Inventory()
+        self.character_sheet = CharacterSheet(self.vader, self.suit, self.force_powers, self.inventory)
         
         self.current_scene_id = None
         self.running = True
@@ -208,12 +215,28 @@ class TerminalGame:
             print("  5. Meditate")
         print("  6. Attempt Retreat")
         print("  7. View Status")
+        print("  I. Inventory")
+        print("  P. Force Powers")
         
         while True:
-            choice = input("\nChoose action (1-7): ").strip()
-            if choice in ['1', '2', '3', '4', '5', '6', '7']:
+            choice = input("\nChoose action (1-7, I, P): ").strip().upper()
+            if choice in ['1', '2', '3', '4', '5', '6', '7', 'I', 'P']:
                 return choice
             print("Invalid choice.")
+    
+    def handle_character_sheet_input(self, action: str) -> bool:
+        """
+        Handle character sheet commands.
+        Returns True if action was handled, False if it was a normal combat action.
+        """
+        if action == 'I':
+            self.character_sheet.display_inventory()
+            return True
+        elif action == 'P':
+            self.character_sheet.display_force_power_tree()
+            input("\nPress ENTER to return to combat...")
+            return True
+        return False
     
     def run_combat(self, combat_trigger: dict, scene=None):
         """Run a combat encounter in the terminal (regular or boss fight)"""
@@ -271,6 +294,10 @@ class TerminalGame:
             
             # Get player action
             action = self.get_combat_action()
+            
+            # Check for character sheet actions
+            if self.handle_character_sheet_input(action):
+                continue
             
             if action == '1':  # Attack
                 damage = 40 + (self.vader.stats.strength * 2)
@@ -380,6 +407,10 @@ class TerminalGame:
             
             # Get player action
             action = self.get_combat_action()
+            
+            # Check for character sheet actions
+            if self.handle_character_sheet_input(action):
+                continue
             
             if action == '1':  # Attack
                 alive = [e for e in enemies if e.is_alive]
