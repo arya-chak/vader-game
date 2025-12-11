@@ -152,6 +152,7 @@ class Inventory:
         """
         Add an item to inventory.
         For consumables, adds to quantity if item already exists.
+        For unique items that already exist, returns False (can't have duplicates).
         Returns True if successful.
         """
         if item.id in self.items:
@@ -262,6 +263,54 @@ class Inventory:
     def get_all_items_of_type(self, item_type: ItemType) -> List[Item]:
         """Get all items of a specific type"""
         return [item for item in self.items.values() if item.item_type == item_type]
+    
+    def add_credits(self, amount: int) -> None:
+        """
+        Add credits to inventory.
+        
+        Args:
+            amount: Number of credits to add
+        """
+        self.credits += amount
+    
+    def process_loot(self, items: List[Item], credits: int) -> Dict:
+        """
+        Process loot from a defeated enemy or boss.
+        Adds items and credits to inventory.
+        
+        Args:
+            items: List of Item objects to add
+            credits: Number of credits to add
+        
+        Returns:
+            Dictionary with results: {
+                'items_added': list of item names,
+                'items_failed': list of items that couldn't be added,
+                'credits_added': total credits added,
+                'new_items': bool indicating if inventory changed
+            }
+        """
+        results = {
+            'items_added': [],
+            'items_failed': [],
+            'credits_added': credits,
+            'new_items': False
+        }
+        
+        # Add items
+        for item in items:
+            if self.add_item(item):
+                results['items_added'].append(item.name)
+                results['new_items'] = True
+            else:
+                results['items_failed'].append(item.name)
+        
+        # Add credits
+        if credits > 0:
+            self.add_credits(credits)
+            results['new_items'] = True
+        
+        return results
     
     def get_inventory_summary(self) -> Dict:
         """Get a summary of inventory"""

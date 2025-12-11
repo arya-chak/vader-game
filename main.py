@@ -31,6 +31,7 @@ Terminal-based text adventure game with integrated combat.
 
 import sys
 import os
+from typing import Dict
 
 # Add src directory to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
@@ -48,6 +49,7 @@ from combat.boss_fight import BossFightSystem, create_infila_first_duel, create_
 sys.path.insert(0, os.path.dirname(__file__))
 from inventory_system import Inventory
 from character_sheet import CharacterSheet
+from loot_system import LootGenerator, SpecialLoot
 
 
 class TerminalGame:
@@ -66,6 +68,7 @@ class TerminalGame:
         self.boss_system = BossFightSystem(self.vader, self.suit)
         self.inventory = Inventory()
         self.character_sheet = CharacterSheet(self.vader, self.suit, self.force_powers, self.inventory)
+        self.loot_generator = LootGenerator()
         
         self.current_scene_id = None
         self.running = True
@@ -238,6 +241,71 @@ class TerminalGame:
             return True
         return False
     
+    def process_combat_loot(self, enemies: list, is_boss_fight: bool = False, boss_name: str = None) -> Dict:
+        """
+        Process loot drops from defeated enemies.
+        Generates items and credits, adds to inventory, and displays notifications.
+        
+        Args:
+            enemies: List of defeated enemies
+            is_boss_fight: Whether this was a boss fight
+            boss_name: Name of boss (if boss_fight is True)
+        
+        Returns:
+            Dictionary with loot results
+        """
+        all_items = []
+        total_credits = 0
+        
+        # Generate loot for each defeated enemy
+        if is_boss_fight and boss_name:
+            # Boss loot
+            items, credits = self.loot_generator.generate_boss_loot(boss_name)
+            all_items.extend(items)
+            total_credits += credits
+        else:
+            # Regular enemy loot
+            for enemy in enemies:
+                if enemy.is_alive == False:  # Only loot defeated enemies
+                    items, credits = self.loot_generator.generate_enemy_loot(enemy.name, enemy.enemy_type.value)
+                    all_items.extend(items)
+                    total_credits += credits
+        
+        # Display loot notification
+        self.loot_generator.display_loot_notification(all_items, total_credits)
+        
+        # Process loot into inventory
+        result = self.inventory.process_loot(all_items, total_credits)
+        
+        # Display inventory update
+        if result['new_items']:
+            self._display_loot_summary(result)
+        
+        return result
+    
+    def _display_loot_summary(self, loot_result: Dict) -> None:
+        """Display a summary of what was added to inventory"""
+        print("─" * 70)
+        print("INVENTORY UPDATED")
+        print("─" * 70)
+        
+        if loot_result['items_added']:
+            print(f"\n✓ Items acquired: {len(loot_result['items_added'])}")
+            for item_name in loot_result['items_added']:
+                print(f"   • {item_name}")
+        
+        if loot_result['credits_added'] > 0:
+            print(f"\n💰 Credits: +{loot_result['credits_added']}")
+            print(f"   Total credits: {self.inventory.credits}")
+        
+        if loot_result['items_failed']:
+            print(f"\n❌ Items that couldn't be added: {len(loot_result['items_failed'])}")
+            for item_name in loot_result['items_failed']:
+                print(f"   • {item_name}")
+        
+        print("─" * 70 + "\n")
+    
+    
     def run_combat(self, combat_trigger: dict, scene=None):
         """Run a combat encounter in the terminal (regular or boss fight)"""
         # Check if this is a boss fight
@@ -362,6 +430,10 @@ class TerminalGame:
         print("\n" + "="*70)
         print("🏆 BOSS DEFEATED!")
         print("="*70)
+        
+        # LOOT PROCESSING FOR BOSS
+        boss_id = combat_trigger.get('boss_id')
+        self.process_combat_loot([], is_boss_fight=True, boss_name=boss_id)
     
     def print_boss_combat_status(self, boss):
         """Print boss combat status"""
@@ -537,6 +609,10 @@ class TerminalGame:
         print(f"  Suit Integrity: {summary['suit_integrity']}%")
         
         print()
+        
+        # LOOT PROCESSING
+        self.process_combat_loot(enemies, is_boss_fight=False)
+        
         # Combat ends here - return to story
     
     def _create_enemies_from_trigger(self, trigger_info: dict) -> list:
