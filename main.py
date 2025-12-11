@@ -42,6 +42,7 @@ from story.story_system import StorySystem
 from story.opening_scenes import create_opening_scenes
 from story.mission_kyber import create_kyber_mission_scenes
 from combat.combat_system import CombatSystem, create_enemy, EnemyType
+from combat.boss_fight import BossFightSystem, create_infila_first_duel, create_infila_final_phase1, create_infila_final_phase2
 
 
 class TerminalGame:
@@ -57,9 +58,11 @@ class TerminalGame:
         self.force_powers = ForcePowerSystem()
         self.story_system = StorySystem(self.vader, self.suit)
         self.combat_system = CombatSystem(self.vader, self.suit, self.force_powers)
+        self.boss_system = BossFightSystem(self.vader, self.suit)
         
         self.current_scene_id = None
         self.running = True
+        self._saved_boss_hp_percent = 60  # For multi-phase boss fights
     
     def load_all_scenes(self):
         """Load all story scenes into the system"""
@@ -179,6 +182,21 @@ class TerminalGame:
         print()
         return alive_count > 0
     
+    def print_extended_status(self):
+        """Print full extended status"""
+        print("\n" + "─"*70)
+        print(f"VADER STATUS:")
+        print(f"  Health: {self.vader.current_health}/{self.vader.max_health}")
+        print(f"  Force Points: {self.vader.current_force_points}/{self.vader.max_force_points}")
+        print(f"  Suit Integrity: {self.suit.integrity}%")
+        print(f"  Pain Level: {self.suit.current_pain_level}%")
+        print(f"  Psychological State:")
+        print(f"    - Darkness: {self.vader.psychological_state.darkness}")
+        print(f"    - Control: {self.vader.psychological_state.control}")
+        print(f"    - Rage: {self.vader.psychological_state.rage}")
+        print(f"    - Suppression: {self.vader.psychological_state.suppression}")
+        print("─"*70)
+    
     def get_combat_action(self):
         """Get player combat action"""
         print("ACTIONS:")
@@ -197,11 +215,148 @@ class TerminalGame:
                 return choice
             print("Invalid choice.")
     
-    def run_combat(self, combat_trigger: dict):
-        """Run a real combat encounter in the terminal"""
+    def run_combat(self, combat_trigger: dict, scene=None):
+        """Run a combat encounter in the terminal (regular or boss fight)"""
+        # Check if this is a boss fight
+        if combat_trigger.get('boss_fight'):
+            self.run_boss_fight(combat_trigger, scene)
+        else:
+            self.run_regular_combat(combat_trigger, scene)
+    
+    def run_boss_fight(self, combat_trigger: dict, scene=None):
+        """Run a boss fight encounter"""
+        print("\n" + "="*70)
+        print("👑 BOSS FIGHT!")
+        print("="*70)
+        
+        boss_id = combat_trigger.get('boss_id')
+        scripted_loss = combat_trigger.get('scripted_loss', False)
+        hp_threshold_for_pause = combat_trigger.get('hp_threshold_for_pause')
+        continue_from_phase1 = combat_trigger.get('continue_from_phase1', False)
+        starting_hp_percent = combat_trigger.get('starting_hp_percent', 60)
+        
+        # Create the appropriate boss
+        boss = None
+        if boss_id == 'infila_first':
+            boss = create_infila_first_duel()
+        elif boss_id == 'infila_final_phase1':
+            boss = create_infila_final_phase1()
+        elif boss_id == 'infila_final_easy':
+            boss = create_infila_final_phase2(
+                water_tank_destroyed=True,
+                starting_hp_percent=starting_hp_percent
+            )
+        elif boss_id == 'infila_final_hard':
+            boss = create_infila_final_phase2(
+                water_tank_destroyed=False,
+                starting_hp_percent=starting_hp_percent
+            )
+        else:
+            print(f"❌ Unknown boss_id: {boss_id}")
+            return
+        
+        if not boss:
+            print(f"❌ Failed to create boss: {boss_id}")
+            return
+        
+        print(f"\nFacing: {boss.name} - {boss.title}\n")
+        
+        # Initialize boss fight
+        self.boss_system.start_boss_fight(boss, scripted_loss=scripted_loss)
+        
+        # Boss fight loop
+        while boss.current_hp > 0:
+            # Show status
+            self.print_boss_combat_status(boss)
+            
+            # Get player action
+            action = self.get_combat_action()
+            
+            if action == '1':  # Attack
+                damage = 40 + (self.vader.stats.strength * 2)
+                result = self.boss_system.vader_attacks_boss(damage)
+                print(f"\n⚔️  Dealt {result['damage']} damage!")
+            
+            elif action == '2':  # Force Push
+                result = self.boss_system.vader_uses_force_on_boss("Force Push", 15)
+                self.vader.spend_force_points(10)
+                print(f"\n🌊 Force Push: {result['damage']} damage!")
+            
+            elif action == '3':  # Force Choke
+                result = self.boss_system.vader_uses_force_on_boss("Force Choke", 35)
+                self.vader.spend_force_points(20)
+                print(f"\n🫱 Force Choke: {result['damage']} damage!")
+            
+            elif action == '4':  # Defend
+                print("\n🛡️  Vader defends")
+            
+            elif action == '5':  # Meditate
+                if self.vader.current_force_points < self.vader.max_force_points * 0.5:
+                    self.vader.restore_force_points(30)
+                    print(f"\n🧘 Restored 30 FP!")
+                else:
+                    print("FP is not low enough.")
+                    continue
+            
+            elif action == '6':  # Retreat
+                print("❌ Cannot retreat from boss fights!")
+                continue
+            
+            elif action == '7':  # Status
+                self.print_extended_status()
+                continue
+            
+            # Check for scripted loss
+            if scripted_loss and boss.current_hp <= boss.max_hp * 0.3:
+                print("\n💀 Your leg gives out! You fall to one knee...")
+                print("(This was scripted - recovering...)")
+                self.vader.current_health = self.vader.max_health
+                return
+            
+            # Boss turn
+            boss_action = self.boss_system.boss_choose_action()
+            if boss_action:
+                result = self.boss_system.execute_boss_action(boss_action)
+                print(f"\n🔥 {boss.name} uses {boss_action.name}!")
+            
+            # End turn
+            self.boss_system.end_turn()
+            
+            # FP regeneration
+            fp_regen = self.vader.regenerate_force_points(self.suit)
+            if fp_regen > 0:
+                print(f"🔵 +{fp_regen} FP")
+            
+            # Check if Vader is dead
+            if self.vader.current_health <= 0:
+                print("\n💀 Vader has been defeated!")
+                return
+        
+        print("\n" + "="*70)
+        print("🏆 BOSS DEFEATED!")
+        print("="*70)
+    
+    def print_boss_combat_status(self, boss):
+        """Print boss combat status"""
+        print("\n" + "─"*70)
+        print(f"VADER: {self.vader.current_health}/{self.vader.max_health} HP | "
+              f"{self.vader.current_force_points}/{self.vader.max_force_points} FP")
+        hp_percent = (boss.current_hp / boss.max_hp) * 100
+        bar_length = 30
+        filled = int(bar_length * (boss.current_hp / boss.max_hp))
+        bar = "█" * filled + "░" * (bar_length - filled)
+        print(f"{boss.name}: {bar} {hp_percent:.0f}%")
+        print("─"*70)
+        print()
+    
+    def run_regular_combat(self, combat_trigger: dict, scene=None):
+        """Run a regular (non-boss) combat encounter in the terminal"""
         print("\n" + "="*70)
         print("⚔️  COMBAT START!")
         print("="*70)
+        
+        # CRITICAL: Reset combat system to avoid state carryover
+        self.combat_system = CombatSystem(self.vader, self.suit, self.force_powers)
         
         # Create enemies from combat trigger
         enemies = self._create_enemies_from_trigger(combat_trigger)
@@ -210,7 +365,6 @@ class TerminalGame:
         self.combat_system.start_combat(enemies)
         
         print(f"\nEnemies: {', '.join([e.name for e in enemies])}\n")
-        input("Press ENTER to begin combat...")
         
         # Combat loop
         while self.combat_system.combat_state.combat_active:
@@ -295,6 +449,7 @@ class TerminalGame:
                         print(f"\n❌ Force Choke failed: {result.get('message')}")
                 else:
                     print("No enemies to choke!")
+                    continue
             
             elif action == '4':  # Defend
                 self.combat_system.vader_defend()
@@ -318,18 +473,7 @@ class TerminalGame:
                     continue
             
             elif action == '7':  # View Status
-                print("\n" + "─"*70)
-                print(f"VADER STATUS:")
-                print(f"  Health: {self.vader.current_health}/{self.vader.max_health}")
-                print(f"  Force Points: {self.vader.current_force_points}/{self.vader.max_force_points}")
-                print(f"  Suit Integrity: {self.suit.integrity}%")
-                print(f"  Pain Level: {self.suit.current_pain_level}%")
-                print(f"  Psychological State:")
-                print(f"    - Darkness: {self.vader.psychological_state.darkness}")
-                print(f"    - Control: {self.vader.psychological_state.control}")
-                print(f"    - Rage: {self.vader.psychological_state.rage}")
-                print(f"    - Suppression: {self.vader.psychological_state.suppression}")
-                print("─"*70)
+                self.print_extended_status()
                 continue
             
             # Enemy turn
@@ -362,6 +506,7 @@ class TerminalGame:
         print(f"  Suit Integrity: {summary['suit_integrity']}%")
         
         print()
+        # Combat ends here - return to story
     
     def _create_enemies_from_trigger(self, trigger_info: dict) -> list:
         """Create enemy list from combat trigger data"""
@@ -402,6 +547,18 @@ class TerminalGame:
         
         scene = self.story_system.scenes[scene_id]
         
+        # Check if THIS scene has a combat trigger
+        # If so, run combat NOW, then auto-advance to next scene
+        if hasattr(scene, 'trigger_combat') and scene.trigger_combat:
+            input("\nPress ENTER to begin combat...")
+            self.run_combat(scene.trigger_combat, scene)
+            
+            # After combat, auto-advance
+            if scene.auto_next:
+                return scene.auto_next
+            else:
+                return None
+        
         # Check for available choices
         choices = self.story_system.get_available_choices(scene_id)
         
@@ -410,26 +567,11 @@ class TerminalGame:
             choice_id = self.show_choices(scene_id)
             if choice_id:
                 next_scene = self.handle_story_choice(scene_id, choice_id)
-                
-                # Check if next scene has combat
-                if next_scene and next_scene in self.story_system.scenes:
-                    next_scene_obj = self.story_system.scenes[next_scene]
-                    if hasattr(next_scene_obj, 'trigger_combat') and next_scene_obj.trigger_combat:
-                        # Run combat, then return to next scene
-                        self.run_combat(next_scene_obj.trigger_combat)
-                        return next_scene
-                
                 return next_scene
         
         elif scene.auto_next:
-            # Auto-advance to next scene
-            if hasattr(scene, 'trigger_combat') and scene.trigger_combat:
-                # Combat first, then auto-advance
-                input("\nPress ENTER to continue...")
-                self.run_combat(scene.trigger_combat)
-            else:
-                input("\nPress ENTER to continue...")
-            
+            # Auto-advance to next scene (without combat)
+            input("\nPress ENTER to continue...")
             return scene.auto_next
         
         else:
