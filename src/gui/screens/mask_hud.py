@@ -299,10 +299,9 @@ class MaskHUDMenu:
         self._play_background_sounds()
     
     def _check_save_exists(self) -> bool:
-        """Check if a save file exists."""
-        import os
-        save_path = "save/vader_save.dat"
-        return os.path.exists(save_path)
+        """Check if any save file exists."""
+        from src.core.save_system import SaveSystem
+        return SaveSystem.get_most_recent_slot() is not None
     
     def _load_audio(self) -> None:
         """Load audio files if they exist."""

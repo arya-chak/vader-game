@@ -1,0 +1,93 @@
+{
+  "version": "1.0",
+  "slot": 1,
+  "timestamp": "2026-05-27T16:53:34",
+  "playtime_seconds": 19.380999999999702,
+  "metadata": {
+    "scene_id": "aftermath_silent",
+    "scene_title": "The Death of Anakin Skywalker",
+    "darkness": 68,
+    "story_arc": "conflicted",
+    "mission": null
+  },
+  "vader": {
+    "level": 1,
+    "experience": 0,
+    "current_health": 150,
+    "max_health": 150,
+    "current_force_points": 100,
+    "max_force_points": 100,
+    "suit_integrity": 100,
+    "pain_level": 40,
+    "psychological_state": {
+      "darkness": 68,
+      "control": 70,
+      "suppression": 80,
+      "rage": 80,
+      "pain_tolerance": 30
+    },
+    "relationships": {
+      "palpatine": 50,
+      "imperial_officers": 30,
+      "inquisitorius": 20,
+      "501st_legion": 80
+    },
+    "choices_made": {},
+    "missions_completed": [],
+    "jedi_killed": 0,
+    "learned_powers": []
+  },
+  "suit": {
+    "integrity": 100,
+    "component_integrity": {
+      "HELMET": 100,
+      "CHEST_PLATE": 100,
+      "RESPIRATOR": 100,
+      "LIFE_SUPPORT": 100,
+      "LIMBS": 100,
+      "ARMOR": 100,
+      "CONTROL_PANEL": 100
+    },
+    "base_pain_level": 40,
+    "current_pain_level": 40,
+    "installed_upgrades": [],
+    "total_suspicion": 0,
+    "suspicion_since_last_meeting": 0,
+    "missions_since_palpatine_meeting": 0,
+    "palpatine_knows_upgrades": [],
+    "loyalty_test_triggered": false,
+    "loyalty_test_failed": false,
+    "credits": 5000,
+    "materials": {
+      "durasteel": 10,
+      "electronics": 5,
+      "bacta": 3,
+      "kyber_fragments": 0,
+      "ancient_artifacts": 0,
+      "prototype_components": 0
+    }
+  },
+  "story": {
+    "current_scene_id": "aftermath_silent",
+    "previous_scene_id": "palpatine_arrives_controlled",
+    "flags": {
+      "awakened": true,
+      "silent_grief": true
+    },
+    "choices_made": {
+      "awakening": "ask_padme",
+      "palpatine_arrives_controlled": "accept_fate"
+    },
+    "current_mission": null,
+    "missions_completed": [],
+    "missions_failed": [],
+    "jedi_killed": 0,
+    "civilians_spared": 0,
+    "civilians_killed": 0,
+    "imperials_killed": 0,
+    "named_characters_met": [],
+    "named_characters_killed": [],
+    "story_arc": "conflicted",
+    "arc_progress": 0
+  }
+}

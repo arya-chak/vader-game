@@ -17,10 +17,12 @@ from src.gui.screens.mask_hud import MaskHUDMenu
 from src.gui.screens.story_dialogue import StoryDialogueScreen
 from src.character.vader import DarthVader
 from src.character.suit_system import SuitSystem
-from src.story.story_system import StorySystem
+from src.story.story_system import StorySystem, Scene
 from src.story.opening_scenes import create_opening_scenes
 from src.story.mission_kyber import create_kyber_mission_scenes
 from src.gui.utils.story_adapter import scene_to_gui
+from src.core.game_session import GameSession
+from src.core.save_system import SaveSystem
 
 
 class GameState:
@@ -36,17 +38,22 @@ class GameState:
 
 class SaveSlotScreen:
     """Screen to select which save slot to start a new game in"""
-    
+
     def __init__(self, window_width: int = 1600, window_height: int = 900):
         self.width = window_width
         self.height = window_height
         self.selected_slot = 0
         self.slots = [
-            {"slot": 1, "name": "Slot 1", "description": "Empty", "used": False},
-            {"slot": 2, "name": "Slot 2", "description": "Empty", "used": False},
-            {"slot": 3, "name": "Slot 3", "description": "Empty", "used": False},
+            {"slot": 1, "name": "Slot 1", "description": "EMPTY", "used": False},
+            {"slot": 2, "name": "Slot 2", "description": "EMPTY", "used": False},
+            {"slot": 3, "name": "Slot 3", "description": "EMPTY", "used": False},
         ]
-        
+        self.slot_data = [None, None, None]
+
+        # Overwrite confirmation state
+        self.overwrite_slot: Optional[int] = None   # slot number (1-3) being confirmed
+        self.confirm_yes: bool = True                # True = YES highlighted
+
         # Setup fonts
         try:
             distant_galaxy_path = os.path.join(script_dir, 'gui/utils/fonts/SfDistantGalaxyAlternateItalic-3RDM.ttf')
@@ -54,90 +61,166 @@ class SaveSlotScreen:
             self.title_font = pygame.font.Font(distant_galaxy_path, 64)
             self.slot_font = pygame.font.Font(imperial_code_path, 40)
             self.desc_font = pygame.font.Font(imperial_code_path, 24)
+            self.confirm_font = pygame.font.Font(imperial_code_path, 32)
         except:
             self.title_font = pygame.font.SysFont('arial', 64, bold=True)
             self.slot_font = pygame.font.SysFont('arial', 40, bold=True)
             self.desc_font = pygame.font.SysFont('arial', 24)
-        
+            self.confirm_font = pygame.font.SysFont('arial', 32, bold=True)
+
         # Colors
         self.bg_color = (0, 0, 0)
         self.text_color = (255, 165, 0)
         self.selected_color = (0, 255, 255)
+        self.used_color = (220, 100, 20)
         self.slot_rects = []
-    
+
+    def refresh_slots(self) -> None:
+        """Read live save metadata and update slot display data."""
+        self.slot_data = SaveSystem.get_all_slots()
+        for i, data in enumerate(self.slot_data):
+            if data is None:
+                self.slots[i]["description"] = "EMPTY"
+                self.slots[i]["used"] = False
+            else:
+                meta = data.get("metadata", {})
+                title = meta.get("scene_title", "Unknown")
+                darkness = meta.get("darkness", 0)
+                self.slots[i]["description"] = f"{title}  |  Dark: {darkness}"
+                self.slots[i]["used"] = True
+
     def update(self, dt: float) -> None:
-        """Update save slot screen"""
         pass
-    
+
     def draw(self, surface: pygame.Surface) -> None:
-        """Draw the save slot selection screen"""
+        """Draw the save slot selection screen."""
         surface.fill(self.bg_color)
-        
-        # Draw title
+
+        # Title
         title = self.title_font.render("SELECT SAVE SLOT", True, self.selected_color)
         title_rect = title.get_rect(center=(self.width // 2, 100))
         surface.blit(title, title_rect)
-        
-        # Draw save slots
+
+        # Slots
         self.slot_rects = []
-        slot_width = 300
-        slot_height = 200
-        gap = 50
-        
+        slot_width = 320
+        slot_height = 220
+        gap = 60
         total_width = (slot_width * 3) + (gap * 2)
         start_x = (self.width - total_width) // 2
-        start_y = 300
-        
+        start_y = 280
+
         for i, slot in enumerate(self.slots):
             x = start_x + (i * (slot_width + gap))
             y = start_y
-            
             slot_rect = pygame.Rect(x, y, slot_width, slot_height)
             self.slot_rects.append(slot_rect)
-            
-            # Draw slot background
+
             if i == self.selected_slot:
-                pygame.draw.rect(surface, self.selected_color, slot_rect, 3)
                 color = self.selected_color
+                pygame.draw.rect(surface, color, slot_rect, 3)
+            elif slot["used"]:
+                color = self.used_color
+                pygame.draw.rect(surface, color, slot_rect, 2)
             else:
-                pygame.draw.rect(surface, self.text_color, slot_rect, 2)
                 color = self.text_color
-            
-            # Draw slot content
+                pygame.draw.rect(surface, color, slot_rect, 2)
+
             slot_text = self.slot_font.render(f"SLOT {slot['slot']}", True, color)
-            slot_text_rect = slot_text.get_rect(center=(x + slot_width // 2, y + 50))
+            slot_text_rect = slot_text.get_rect(center=(x + slot_width // 2, y + 55))
             surface.blit(slot_text, slot_text_rect)
-            
-            desc_text = self.desc_font.render(slot['description'], True, color)
+
+            desc_text = self.desc_font.render(slot["description"], True, color)
             desc_text_rect = desc_text.get_rect(center=(x + slot_width // 2, y + 130))
             surface.blit(desc_text, desc_text_rect)
-    
+
+            # Timestamp line for used slots
+            if slot["used"] and self.slot_data[i]:
+                ts = self.slot_data[i].get("timestamp", "")[:16].replace("T", "  ")
+                ts_surf = self.desc_font.render(ts, True, color)
+                ts_rect = ts_surf.get_rect(center=(x + slot_width // 2, y + 175))
+                surface.blit(ts_surf, ts_rect)
+
+        # Overwrite confirmation overlay
+        if self.overwrite_slot is not None:
+            self._draw_overwrite_prompt(surface)
+
+    def _draw_overwrite_prompt(self, surface: pygame.Surface) -> None:
+        box_w, box_h = 500, 200
+        box_x = (self.width - box_w) // 2
+        box_y = (self.height - box_h) // 2
+        box_rect = pygame.Rect(box_x, box_y, box_w, box_h)
+
+        # Semi-transparent backdrop
+        overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))
+        surface.blit(overlay, (0, 0))
+
+        pygame.draw.rect(surface, (0, 0, 0), box_rect)
+        pygame.draw.rect(surface, (220, 100, 20), box_rect, 2)
+
+        prompt = self.confirm_font.render(
+            f"OVERWRITE SLOT {self.overwrite_slot}?", True, (255, 200, 0)
+        )
+        surface.blit(prompt, prompt.get_rect(center=(self.width // 2, box_y + 55)))
+
+        yes_color = (255, 215, 0) if self.confirm_yes else (150, 100, 0)
+        no_color = (255, 215, 0) if not self.confirm_yes else (150, 100, 0)
+
+        yes_surf = self.confirm_font.render("YES", True, yes_color)
+        no_surf = self.confirm_font.render("NO", True, no_color)
+        surface.blit(yes_surf, yes_surf.get_rect(center=(self.width // 2 - 80, box_y + 135)))
+        surface.blit(no_surf, no_surf.get_rect(center=(self.width // 2 + 80, box_y + 135)))
+
     def handle_input(self, event: pygame.event.Event) -> Optional[int]:
         """
-        Handle input for save slot selection.
-        Returns the selected slot number (1-3) or None if not selected.
+        Returns the selected slot number (1-3) when confirmed, -1 for back, None otherwise.
         """
+        if self.overwrite_slot is not None:
+            return self._handle_overwrite_input(event)
+
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_LEFT:
                 self.selected_slot = (self.selected_slot - 1) % len(self.slots)
             elif event.key == pygame.K_RIGHT:
                 self.selected_slot = (self.selected_slot + 1) % len(self.slots)
             elif event.key == pygame.K_RETURN:
-                return self.slots[self.selected_slot]['slot']
+                return self._select_slot(self.selected_slot)
             elif event.key == pygame.K_ESCAPE:
-                return -1  # Return to main menu
-        
+                return -1
+
         elif event.type == pygame.MOUSEMOTION:
             for i, rect in enumerate(self.slot_rects):
                 if rect.collidepoint(event.pos):
                     self.selected_slot = i
-        
+
         elif event.type == pygame.MOUSEBUTTONDOWN:
-            if event.button == 1:  # Left click
+            if event.button == 1:
                 for i, rect in enumerate(self.slot_rects):
                     if rect.collidepoint(event.pos):
-                        return self.slots[i]['slot']
-        
+                        return self._select_slot(i)
+
+        return None
+
+    def _select_slot(self, index: int) -> Optional[int]:
+        """Select a slot by zero-based index. Prompts for overwrite if occupied."""
+        slot_num = self.slots[index]["slot"]
+        if self.slots[index]["used"]:
+            self.overwrite_slot = slot_num
+            self.confirm_yes = True
+            return None
+        return slot_num
+
+    def _handle_overwrite_input(self, event: pygame.event.Event) -> Optional[int]:
+        if event.type == pygame.KEYDOWN:
+            if event.key in (pygame.K_LEFT, pygame.K_RIGHT):
+                self.confirm_yes = not self.confirm_yes
+            elif event.key == pygame.K_RETURN:
+                slot = self.overwrite_slot
+                self.overwrite_slot = None
+                return slot if self.confirm_yes else None
+            elif event.key == pygame.K_ESCAPE:
+                self.overwrite_slot = None
         return None
 
 
@@ -162,7 +245,10 @@ class GUIGame:
         self.current_state = GameState.MAIN_MENU
         self.selected_slot = None
 
-        # Game systems — None until start_new_game() fires
+        # Active session — None until start_new_game() or load_game() fires
+        self.session: Optional[GameSession] = None
+
+        # Legacy references kept for backward compat with _start_scene / _load_scene_gui
         self.vader = None
         self.suit = None
         self.story = None
@@ -205,12 +291,14 @@ class GUIGame:
     
     def on_new_game(self) -> None:
         """Handle new game button press"""
+        self.save_slot_screen.refresh_slots()
         self.current_state = GameState.SAVE_SLOT_SELECT
-    
+
     def on_continue(self) -> None:
-        """Handle continue button press"""
-        # TODO: Load most recent save
-        print("Continue feature coming soon")
+        """Handle continue button press — loads most recent save."""
+        slot = SaveSystem.get_most_recent_slot()
+        if slot is not None:
+            self.load_game(slot)
     
     def on_settings(self) -> None:
         """Handle settings button press"""
@@ -223,33 +311,47 @@ class GUIGame:
     
     def on_story_choice_selected(self, choice_id: str) -> None:
         """Handle story choice selection — advance story or auto-continue."""
-        if not self.story:
+        if not self.session:
             return
 
-        scene_id = self.story.state.current_scene_id
-
+        # Auto-next scenes synthesise a __continue__ choice; handle it directly
         if choice_id == "__continue__":
-            scene = self.story.scenes.get(scene_id)
+            scene = self.session.get_current_scene()
             next_id = scene.auto_next if scene else None
             if next_id:
-                self._start_scene(next_id)
+                advanced = self.session.advance_to_scene(next_id)
+                if advanced:
+                    self._load_scene_into_gui(advanced)
+                else:
+                    self.return_to_menu()
             else:
                 self.return_to_menu()
             return
 
-        success, _msg, consequences = self.story.make_choice(scene_id, choice_id)
-        if not success:
-            return
-
+        consequences = self.session.make_choice(choice_id)
         next_scene_id = consequences.get("next_scene")
         if next_scene_id:
-            # make_choice already called start_scene internally; just update GUI
-            self._load_scene_gui(next_scene_id)
+            # make_choice already called start_scene internally — fetch without re-starting
+            scene = self.session.story_system.scenes.get(next_scene_id)
+            if scene and scene.trigger_combat:
+                print(f"Combat trigger: {scene.trigger_combat}")
+            elif scene:
+                self._load_scene_into_gui(scene)
+            else:
+                self.return_to_menu()
         else:
             self.return_to_menu()
+        SaveSystem.save(self.session)
+
+    def _load_scene_into_gui(self, scene: Scene) -> None:
+        """Push a Scene object into the dialogue screen."""
+        choices = self.session.story_system.get_available_choices(scene.id)
+        self.story_screen.set_scene(scene_to_gui(scene, choices))
 
     def _start_scene(self, scene_id: str) -> bool:
-        """Start a scene in the story system and push it to the GUI."""
+        """Legacy helper — start a scene via self.story and push to GUI."""
+        if not self.story:
+            return False
         success, _msg, _scene = self.story.start_scene(scene_id)
         if not success:
             self.return_to_menu()
@@ -258,7 +360,9 @@ class GUIGame:
         return True
 
     def _load_scene_gui(self, scene_id: str) -> None:
-        """Push an already-started scene into the dialogue screen."""
+        """Legacy helper — push an already-started scene into the dialogue screen."""
+        if not self.story:
+            return
         scene = self.story.scenes.get(scene_id)
         if not scene:
             self.return_to_menu()
@@ -267,18 +371,24 @@ class GUIGame:
         self.story_screen.set_scene(scene_to_gui(scene, choices))
 
     def start_new_game(self, slot: int) -> None:
-        """Initialise game systems and begin at the_void."""
+        """Create a new GameSession, save immediately, and begin at the_void."""
+        self.session = GameSession.new_game(slot)
         self.selected_slot = slot
-        self.vader = DarthVader()
-        self.suit = SuitSystem()
-        self.story = StorySystem(self.vader, self.suit)
+        SaveSystem.save(self.session)
+        scene = self.session.get_current_scene()
+        if scene:
+            self._load_scene_into_gui(scene)
+        self.current_state = GameState.STORY_PLAYING
 
-        for scene in create_opening_scenes().values():
-            self.story.register_scene(scene)
-        for scene in create_kyber_mission_scenes().values():
-            self.story.register_scene(scene)
-
-        self._start_scene("the_void")
+    def load_game(self, slot: int) -> None:
+        """Load a saved GameSession and resume from the saved scene."""
+        self.session = SaveSystem.load(slot)
+        if self.session is None:
+            return  # Stay on menu — load failed
+        self.selected_slot = slot
+        scene = self.session.get_current_scene()
+        if scene:
+            self._load_scene_into_gui(scene)
         self.current_state = GameState.STORY_PLAYING
     
     def return_to_menu(self) -> None:
@@ -317,6 +427,8 @@ class GUIGame:
             self.save_slot_screen.update(dt)
         elif self.current_state == GameState.STORY_PLAYING:
             self.story_screen.update(dt)
+            if self.session:
+                self.session.tick(dt)
     
     def draw(self) -> None:
         """Draw current screen"""

@@ -79,12 +79,13 @@ star-wars-vader/
 - [ ] GUI fully functional — work in progress; planning chat will scope each screen
 - [x] GUI entry point (`main_gui.py`) — active target; Pygame
 - [x] `mask_hud.py` — visual rebuild complete; black background, two red oval lenses with glow + targeting grid, cyan title at top, menu in left eye, studio text in right eye
+- [x] Save/load system — `src/core/save_system.py` (JSON, 3 slots, auto-save after each scene)
+- [x] GameSession — `src/core/game_session.py` (holds vader + suit + story_system for active play)
 - [ ] Dialogue screen rebuild — planned after Mask HUD
 - [ ] Save slot screen — low priority, style pass later
 
 ### What does NOT exist yet
 - [ ] GUI (Pygame implementation — planned for Phase 2)
-- [ ] Save/load system
 - [ ] Mission system beyond Kyber Crystal arc
 - [ ] Ollama AI integration
 - [ ] Ship management screen
@@ -96,9 +97,11 @@ star-wars-vader/
 **Entry point:** `main_gui.py` → `GUIGame`
 
 **Lifecycle:**
-- `self.vader`, `self.suit`, `self.story` are `None` until `start_new_game()` fires — never assume they exist at startup.
-- `start_new_game(slot)` creates `DarthVader`, `SuitSystem`, `StorySystem(vader, suit)`, registers all scenes from `create_opening_scenes()`, then calls `_start_scene("the_void")`.
-- `the_void` is always the first scene ID.
+- `self.session` is `None` until `start_new_game()` or `load_game()` fires — never assume it exists at startup.
+- `start_new_game(slot)` creates a `GameSession` via `GameSession.new_game(slot)`, saves immediately, and calls `_load_scene_into_gui(session.get_current_scene())`.
+- `load_game(slot)` calls `SaveSystem.load(slot)`, then `_load_scene_into_gui` with the restored scene.
+- `the_void` is always the first scene ID for a new game.
+- `self.vader`, `self.suit`, `self.story` are kept as `None` legacy references; all active code uses `self.session`.
 
 **Adapter:** `src/gui/utils/story_adapter.py` — `scene_to_gui(scene, available_choices)` converts a `Scene` object + filtered `Choice` list to the dict format `StoryDialogueScreen.set_scene()` expects.
 
@@ -109,9 +112,9 @@ star-wars-vader/
 
 **Tags** are derived from `Choice` consequence fields: `darkness_change>0` → `[DARK SIDE]`, `<0` → `[LIGHT SIDE]`; `control_change>0` → `[CONTROL]`, `<0` → `[LOSS OF CONTROL]`; `rage_change>0` → `[RAGE]`.
 
-**Auto-next scenes** (no choices): the adapter synthesises a single `{"id": "__continue__", ...}` choice. The choice callback detects `choice_id == "__continue__"` and calls `_start_scene(scene.auto_next)` directly — `make_choice` is NOT called.
+**Auto-next scenes** (no choices): the adapter synthesises a single `{"id": "__continue__", ...}` choice. The choice callback detects `choice_id == "__continue__"` and calls `session.advance_to_scene(scene.auto_next)` directly — `make_choice` is NOT called.
 
-**Double-start guard:** `make_choice` internally calls `start_scene` when `next_scene_id` is set. After `make_choice` returns, call `_load_scene_gui(next_scene_id)` only (not `_start_scene`), to avoid running `on_enter` twice.
+**Double-start guard:** `make_choice` internally calls `start_scene` when `next_scene_id` is set. After `make_choice` returns, fetch the scene via `session.story_system.scenes.get(next_scene_id)` and call `_load_scene_into_gui` — do NOT call `advance_to_scene` or `_start_scene`, which would run `on_enter` twice.
 
 ---
 
@@ -122,6 +125,7 @@ star-wars-vader/
 | Language | Python 3.11+, M1 Pro Mac |
 | Terminal UI | `rich` library |
 | GUI (future) | Pygame or Pyglet |
+| Save format | JSON (`saves/slot_N.json`) |
 | AI integration (future) | Ollama (local, offline) |
 | IDE | VS Code |
 | Version control | GitHub |
@@ -265,6 +269,18 @@ scene.trigger_combat = {
     "boss_fight": False  # True for boss encounters
 }
 ```
+
+---
+
+### Save system (`src/core/save_system.py`)
+
+- 3 save slots: `saves/slot_1.json`, `saves/slot_2.json`, `saves/slot_3.json`
+- Auto-saves after every scene completes (inside `on_story_choice_selected`)
+- `SaveSystem` is stateless — all methods are `@staticmethod`
+- `GameSession` is the live game object: `vader` + `suit` + `story_system` + `slot` + `playtime_seconds`
+- On load: reconstruct vader/suit from JSON fields, create fresh `StorySystem`, restore `StoryState`
+- Scene definitions always come from code — only state is persisted
+- `SuitComponent` enum names used as JSON keys for `component_integrity`
 
 ---
 
