@@ -108,17 +108,10 @@ class ChoiceButton:
             bar_y = self.y + (self.height // 2) - 10
             pygame.draw.rect(surface, (255, 180, 0), (bar_x, bar_y, 3, 20))
 
-        # Draw chevron and text
+        # Draw text
         text_x = self.x + self.padding
         text_y = self.y + (self.height // 2) - (self.font.get_linesize() // 2)
-
-        # Draw chevron
-        chevron_surface = self.font.render(self.chevron + " ", True, current_color)
-        surface.blit(chevron_surface, (text_x, text_y))
-        
-        # Draw text
         text_surface = self.font.render(self.text, True, current_color)
-        text_x += self.font.size(self.chevron + " ")[0]
         surface.blit(text_surface, (text_x, text_y))
         
         # Draw glow/highlight if selected

@@ -15,6 +15,12 @@ sys.path.insert(0, script_dir)
 # Import the mask HUD menu and story dialogue screen
 from src.gui.screens.mask_hud import MaskHUDMenu
 from src.gui.screens.story_dialogue import StoryDialogueScreen
+from src.character.vader import DarthVader
+from src.character.suit_system import SuitSystem
+from src.story.story_system import StorySystem
+from src.story.opening_scenes import create_opening_scenes
+from src.story.mission_kyber import create_kyber_mission_scenes
+from src.gui.utils.story_adapter import scene_to_gui
 
 
 class GameState:
@@ -155,6 +161,11 @@ class GUIGame:
         # Game state
         self.current_state = GameState.MAIN_MENU
         self.selected_slot = None
+
+        # Game systems — None until start_new_game() fires
+        self.vader = None
+        self.suit = None
+        self.story = None
         
         # Setup fonts for dialogue screen
         try:
@@ -211,65 +222,63 @@ class GUIGame:
         self.running = False
     
     def on_story_choice_selected(self, choice_id: str) -> None:
-        """Handle story choice selection"""
-        print(f"Story choice selected: {choice_id}")
-        # TODO: Process choice in game logic and load next scene
-        # For now, just advance to show how it works
-        # This will be replaced with actual game logic integration
-    
+        """Handle story choice selection — advance story or auto-continue."""
+        if not self.story:
+            return
+
+        scene_id = self.story.state.current_scene_id
+
+        if choice_id == "__continue__":
+            scene = self.story.scenes.get(scene_id)
+            next_id = scene.auto_next if scene else None
+            if next_id:
+                self._start_scene(next_id)
+            else:
+                self.return_to_menu()
+            return
+
+        success, _msg, consequences = self.story.make_choice(scene_id, choice_id)
+        if not success:
+            return
+
+        next_scene_id = consequences.get("next_scene")
+        if next_scene_id:
+            # make_choice already called start_scene internally; just update GUI
+            self._load_scene_gui(next_scene_id)
+        else:
+            self.return_to_menu()
+
+    def _start_scene(self, scene_id: str) -> bool:
+        """Start a scene in the story system and push it to the GUI."""
+        success, _msg, _scene = self.story.start_scene(scene_id)
+        if not success:
+            self.return_to_menu()
+            return False
+        self._load_scene_gui(scene_id)
+        return True
+
+    def _load_scene_gui(self, scene_id: str) -> None:
+        """Push an already-started scene into the dialogue screen."""
+        scene = self.story.scenes.get(scene_id)
+        if not scene:
+            self.return_to_menu()
+            return
+        choices = self.story.get_available_choices(scene_id)
+        self.story_screen.set_scene(scene_to_gui(scene, choices))
+
     def start_new_game(self, slot: int) -> None:
-        """Start a new game in the selected slot"""
-        print(f"Starting new game in slot {slot}")
+        """Initialise game systems and begin at the_void."""
         self.selected_slot = slot
-        
-        # Create a test scene to demonstrate the story screen
-        test_scene = {
-            'id': 'the_void',
-            'title': 'THE VOID',
-            'background_image': None,
-            'lines': [
-                {
-                    'speaker': 'Narrator',
-                    'text': 'Darkness. Cold. An endless void stretches before you.',
-                    'left_portrait': None,
-                    'right_portrait': None,
-                },
-                {
-                    'speaker': 'Vader',
-                    'text': 'I sense a disturbance in the Force.',
-                    'left_portrait': 'vader_mask',
-                    'right_portrait': None,
-                },
-                {
-                    'speaker': 'Officer',
-                    'text': 'Lord Vader, the rebels have been spotted near the Kyber Temple.',
-                    'left_portrait': 'vader_mask',
-                    'right_portrait': 'imperial_officer',
-                },
-            ],
-            'choices': [
-                {
-                    'id': 'hunt_rebels',
-                    'text': 'Hunt them down. Leave none alive.',
-                    'tags': ['[DARK SIDE]'],
-                },
-                {
-                    'id': 'interrogate',
-                    'text': 'Capture them for interrogation.',
-                    'tags': [],
-                },
-                {
-                    'id': 'investigate',
-                    'text': 'Investigate the Kyber Temple personally.',
-                    'tags': [],
-                },
-            ]
-        }
-        
-        # Load test scene into story screen
-        self.story_screen.set_scene(test_scene)
-        
-        # Transition directly to story screen (no loading delay)
+        self.vader = DarthVader()
+        self.suit = SuitSystem()
+        self.story = StorySystem(self.vader, self.suit)
+
+        for scene in create_opening_scenes().values():
+            self.story.register_scene(scene)
+        for scene in create_kyber_mission_scenes().values():
+            self.story.register_scene(scene)
+
+        self._start_scene("the_void")
         self.current_state = GameState.STORY_PLAYING
     
     def return_to_menu(self) -> None:

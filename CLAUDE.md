@@ -91,6 +91,30 @@ star-wars-vader/
 
 ---
 
+## Story system integration
+
+**Entry point:** `main_gui.py` → `GUIGame`
+
+**Lifecycle:**
+- `self.vader`, `self.suit`, `self.story` are `None` until `start_new_game()` fires — never assume they exist at startup.
+- `start_new_game(slot)` creates `DarthVader`, `SuitSystem`, `StorySystem(vader, suit)`, registers all scenes from `create_opening_scenes()`, then calls `_start_scene("the_void")`.
+- `the_void` is always the first scene ID.
+
+**Adapter:** `src/gui/utils/story_adapter.py` — `scene_to_gui(scene, available_choices)` converts a `Scene` object + filtered `Choice` list to the dict format `StoryDialogueScreen.set_scene()` expects.
+
+**Portrait assignment rules (per dialogue line):**
+- Speaker is `"Vader"` / `"Darth Vader"` → `left_portrait="vader_mask"`, `right_portrait=None`
+- Speaker is `"Narrator"` / `"Inner Voice"` → both portraits `None`
+- Any other speaker → `left_portrait="vader_mask"`, `right_portrait=<speaker_name_slugified>`
+
+**Tags** are derived from `Choice` consequence fields: `darkness_change>0` → `[DARK SIDE]`, `<0` → `[LIGHT SIDE]`; `control_change>0` → `[CONTROL]`, `<0` → `[LOSS OF CONTROL]`; `rage_change>0` → `[RAGE]`.
+
+**Auto-next scenes** (no choices): the adapter synthesises a single `{"id": "__continue__", ...}` choice. The choice callback detects `choice_id == "__continue__"` and calls `_start_scene(scene.auto_next)` directly — `make_choice` is NOT called.
+
+**Double-start guard:** `make_choice` internally calls `start_scene` when `next_scene_id` is set. After `make_choice` returns, call `_load_scene_gui(next_scene_id)` only (not `_start_scene`), to avoid running `on_enter` twice.
+
+---
+
 ## Tech stack
 
 | Layer | Choice |
