@@ -59,12 +59,14 @@ class StoryDialogueScreen:
         
         # Colors
         self.bg_color = (10, 10, 10)  # Black
-        self.title_color = (0, 255, 255)  # Cyan
-        self.dialogue_color = (255, 255, 255)  # White
-        self.speaker_color = (255, 170, 0)  # Gold
-        self.choice_color = (0, 255, 255)  # Cyan
-        self.choice_selected_color = (0, 255, 0)  # Green
-        self.choice_hover_color = (0, 200, 255)  # Light cyan
+        self.title_color = (220, 100, 20)        # Reddish-orange
+        self.dialogue_color = (255, 255, 255)    # White
+        self.speaker_color = (255, 170, 0)       # Gold
+        self.choice_color = (200, 80, 10)        # Reddish-orange
+        self.choice_selected_color = (255, 180, 0)   # Bright gold when selected
+        self.choice_hover_color = (240, 130, 30)     # Lighter orange on hover
+        self.panel_border_color = (180, 60, 0)       # Dark red-orange for borders
+        self.panel_border_inner = (120, 40, 0)       # Dimmer inner border
         
         # Layout dimensions
         self.scene_bg_height = 500
@@ -77,7 +79,7 @@ class StoryDialogueScreen:
         self.current_scene_id = None
         self.scene_title = ""
         self.scene_background = None
-        self.scene_background_color = (20, 30, 50)  # Dark blue gradient
+        self.scene_background_color = (15, 8, 8)  # Near-black with slight red warmth
         
         # Components
         self.dialogue_box: Optional[DialogueBox] = None
@@ -112,8 +114,8 @@ class StoryDialogueScreen:
             y=left_portrait_y,
             width=left_portrait_width,
             height=left_portrait_height,
-            border_color=self.choice_color,
-            glow_color=self.choice_color
+            border_color=(220, 100, 20),
+            glow_color=(220, 100, 20)
         )
         
         # Create right portrait
@@ -127,8 +129,8 @@ class StoryDialogueScreen:
             y=right_portrait_y,
             width=right_portrait_width,
             height=right_portrait_height,
-            border_color=self.choice_color,
-            glow_color=self.choice_color
+            border_color=(220, 100, 20),
+            glow_color=(220, 100, 20)
         )
         
         # Create dialogue box (centered between portraits)
@@ -304,10 +306,13 @@ class StoryDialogueScreen:
         """
         # Clear background
         surface.fill(self.bg_color)
-        
+
         # Draw scene background
         self._draw_scene_background(surface)
-        
+
+        # Draw DS-style panel border framing the bottom section
+        self._draw_panel_border(surface)
+
         # Draw title bar
         self._draw_title_bar(surface)
         
@@ -333,19 +338,54 @@ class StoryDialogueScreen:
     
     def _draw_title_bar(self, surface: pygame.Surface) -> None:
         """Draw the title bar with scene name."""
-        # Draw title background
         pygame.draw.line(surface, (50, 50, 50),
                         (0, self.scene_bg_height),
                         (self.width, self.scene_bg_height), 2)
-        
-        # Draw title text
+
         if self.scene_title:
-            title_surface = self.title_font.render(self.scene_title, True, 
-                                                  self.title_color)
+            title_surface = self.title_font.render(self.scene_title, True,
+                                                   self.title_color)
             title_x = 50
             title_y = self.scene_bg_height + 10
             surface.blit(title_surface, (title_x, title_y))
-    
+
+    def _draw_panel_border(self, surface: pygame.Surface) -> None:
+        """Draw DS-style tech border framing the bottom panel (y=500 to y=900)."""
+        bracket_color = (220, 100, 20)
+        divider_color = (100, 35, 0)
+        dot_color = (180, 60, 0)
+
+        # Outer border
+        pygame.draw.rect(surface, self.panel_border_color,
+                         (0, 500, 1600, 400), 2)
+
+        # Inner border (inset 6px)
+        pygame.draw.rect(surface, self.panel_border_inner,
+                         (6, 506, 1588, 388), 1)
+
+        # Corner brackets — L-shaped, 20px long, 2px wide
+        # Top-left
+        pygame.draw.line(surface, bracket_color, (0, 500), (20, 500), 2)
+        pygame.draw.line(surface, bracket_color, (0, 500), (0, 520), 2)
+        # Top-right
+        pygame.draw.line(surface, bracket_color, (1580, 500), (1600, 500), 2)
+        pygame.draw.line(surface, bracket_color, (1599, 500), (1599, 520), 2)
+        # Bottom-left
+        pygame.draw.line(surface, bracket_color, (0, 899), (20, 899), 2)
+        pygame.draw.line(surface, bracket_color, (0, 880), (0, 900), 2)
+        # Bottom-right
+        pygame.draw.line(surface, bracket_color, (1580, 899), (1600, 899), 2)
+        pygame.draw.line(surface, bracket_color, (1599, 880), (1599, 900), 2)
+
+        # Horizontal divider at y=560 (title / dialogue separator)
+        pygame.draw.line(surface, divider_color, (0, 560), (1600, 560), 1)
+        # Horizontal divider at y=800 (dialogue / choices separator)
+        pygame.draw.line(surface, divider_color, (0, 800), (1600, 800), 1)
+
+        # Decorative dots at midpoints of divider line ends
+        for dot_pos in [(8, 560), (1592, 560), (8, 800), (1592, 800)]:
+            pygame.draw.circle(surface, dot_color, dot_pos, 3)
+
     def _draw_choices(self, surface: pygame.Surface) -> None:
         """Draw all choice buttons."""
         for choice_button in self.choice_buttons:

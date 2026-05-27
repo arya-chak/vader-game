@@ -77,6 +77,10 @@ star-wars-vader/
 - [x] Terminal game loop (`main.py`) — exists but superseded; do not add features here
 - [x] GUI entry point (`main_gui.py`) — active development target (Pygame)
 - [ ] GUI fully functional — work in progress; planning chat will scope each screen
+- [x] GUI entry point (`main_gui.py`) — active target; Pygame
+- [x] `mask_hud.py` — visual rebuild complete; black background, two red oval lenses with glow + targeting grid, cyan title at top, menu in left eye, studio text in right eye
+- [ ] Dialogue screen rebuild — planned after Mask HUD
+- [ ] Save slot screen — low priority, style pass later
 
 ### What does NOT exist yet
 - [ ] GUI (Pygame implementation — planned for Phase 2)
@@ -240,6 +244,23 @@ scene.trigger_combat = {
 
 ---
 
+## GUI rendering conventions
+
+- Resolution: 1600×900
+- Draw order is always: background → structure → lenses → overlays → tint
+- All alpha surfaces use `pygame.SRCALPHA`
+- Left eye center: (530, 380) — menu options live here
+- Right eye center: (1070, 380) — flavor text lives here
+- Respirator: (800, 680)
+- Color palette: see GUI Design Plan in project knowledge
+- Fonts: SF Distant Galaxy (titles), ImperialCode (HUD/mono text), Times New Roman (dialogue)
+- Font fallback: system Arial if .ttf files not found — always wrap font load in try/except
+- Dialogue screen color palette: reddish-orange `(220,100,20)` for all border/accent elements — NOT cyan. Cyan is mask HUD only.
+- Bottom panel has DS-style tech border: outer `(180,60,0)`, inner `(120,40,0)`, corner brackets in `(220,100,20)`, dividers at y=560 and y=800.
+- Selected choice: bright gold `(255,180,0)` with vertical bar indicator (3px × 20px) drawn left of the chevron.
+
+---
+
 ## Resources and materials
 
 **Credits** — for upgrades and equipment  
@@ -284,7 +305,7 @@ The 501st recognizes Vader's leadership style without knowing his true identity 
 - Gold (stats): `#ffaa00`
 
 **Screens planned:**
-1. Main Menu — Vader Mask HUD (first-person, red-tinted, breathing fog, biometric readouts)
+1. Main Menu — Vader Mask HUD: black background, two red oval lenses with multi-layer glow + targeting grid, cyan SF Distant Galaxy title at top, menu options in left eye, studio credit in right eye. No structural framing panels — biometric readouts are reserved for the in-game HUD only.
 2. Character Sheet — SWTOR-style tabbed (Character / Inventory / Equipment / Force Powers / Upgrades)
 3. Dialogue Scene — Battlefront Elite Squadron style (portraits, text, choices)
 4. Combat HUD — terminal-style with visual overlay

@@ -102,10 +102,16 @@ class ChoiceButton:
         else:
             current_color = self.normal_color
         
+        # Draw selection indicator bar (3px wide, 20px tall) to left of chevron
+        if self.is_selected and self.is_enabled:
+            bar_x = self.x + self.padding - 6
+            bar_y = self.y + (self.height // 2) - 10
+            pygame.draw.rect(surface, (255, 180, 0), (bar_x, bar_y, 3, 20))
+
         # Draw chevron and text
         text_x = self.x + self.padding
         text_y = self.y + (self.height // 2) - (self.font.get_linesize() // 2)
-        
+
         # Draw chevron
         chevron_surface = self.font.render(self.chevron + " ", True, current_color)
         surface.blit(chevron_surface, (text_x, text_y))
