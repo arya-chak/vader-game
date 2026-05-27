@@ -216,8 +216,12 @@ class MaskHUDMenu:
         
         # Setup fonts
         # Using ImperialCode (Aurebesh-inspired) for menu and SF Distant Galaxy for title
-        imperial_code_path = '../utils/fonts/ImperialCode-VGXpx.ttf'
-        distant_galaxy_path = '../utils/fonts/SfDistantGalaxyAlternateItalic-3RDM.ttf'
+        import os
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))
+        
+        imperial_code_path = os.path.join(project_root, 'src/gui/utils/fonts/ImperialCode-VGXpx.ttf')
+        distant_galaxy_path = os.path.join(project_root, 'src/gui/utils/fonts/SfDistantGalaxyAlternateItalic-3RDM.ttf')
         
         try:
             title_font = pygame.font.Font(distant_galaxy_path, 64)
@@ -225,6 +229,8 @@ class MaskHUDMenu:
         except FileNotFoundError as e:
             # Fallback to system font if file not found
             print(f"Warning: Font file not found: {e}")
+            print(f"Tried: {distant_galaxy_path}")
+            print(f"Tried: {imperial_code_path}")
             print("Falling back to Arial")
             title_font = pygame.font.SysFont('arial', 64, bold=True)
             menu_font = pygame.font.SysFont('arial', 32, bold=True)
