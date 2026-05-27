@@ -144,6 +144,9 @@ class GUIGame:
         
         self.width = 1600
         self.height = 900
+        info = pygame.display.Info()
+        self.width = info.current_w
+        self.height = info.current_h - 130
         self.screen = pygame.display.set_mode((self.width, self.height))
         pygame.display.set_caption("Darth Vader: Mask of Vader")
         self.clock = pygame.time.Clock()
@@ -278,7 +281,11 @@ class GUIGame:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
-            
+
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    self.running = False
+
             elif self.current_state == GameState.MAIN_MENU:
                 self.main_menu.handle_input(event)
             

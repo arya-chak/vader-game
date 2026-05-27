@@ -68,12 +68,13 @@ class StoryDialogueScreen:
         self.panel_border_color = (180, 60, 0)       # Dark red-orange for borders
         self.panel_border_inner = (120, 40, 0)       # Dimmer inner border
         
-        # Layout dimensions
-        self.scene_bg_height = 500
-        self.title_bar_height = 60
+        # Layout dimensions — all proportional to actual screen size
+        self.scene_bg_height = int(self.height * 0.555)
+        self.title_bar_height = int(self.height * 0.067)
         self.dialogue_section_start = self.scene_bg_height + self.title_bar_height
-        self.dialogue_section_height = 240
+        self.dialogue_section_height = int(self.height * 0.267)
         self.choices_section_start = self.dialogue_section_start + self.dialogue_section_height
+        self.choices_section_height = self.height - self.choices_section_start
         
         # Scene data
         self.current_scene_id = None
@@ -106,8 +107,8 @@ class StoryDialogueScreen:
         # Create left portrait
         left_portrait_x = 50
         left_portrait_y = self.dialogue_section_start
-        left_portrait_width = 200
-        left_portrait_height = 240
+        left_portrait_width = int(self.width * 0.125)
+        left_portrait_height = int(self.height * 0.267)
         
         self.left_portrait = Portrait(
             x=left_portrait_x,
@@ -119,10 +120,10 @@ class StoryDialogueScreen:
         )
         
         # Create right portrait
-        right_portrait_x = self.width - 250
+        right_portrait_x = self.width - left_portrait_width - int(self.width * 0.031)
         right_portrait_y = self.dialogue_section_start
-        right_portrait_width = 200
-        right_portrait_height = 240
+        right_portrait_width = left_portrait_width
+        right_portrait_height = left_portrait_height
         
         self.right_portrait = Portrait(
             x=right_portrait_x,
@@ -263,12 +264,11 @@ class StoryDialogueScreen:
             return
         
         # Create choice buttons
-        choice_y = self.choices_section_start + 20
-        choice_x = 100
-        
-        # Calculate spacing so all choices fit on screen
-        available_height = self.height - choice_y
-        spacing = min(45, max(30, (available_height - 50) // len(self.available_choices)))
+        choice_x = int(self.width * 0.063)
+        choice_y_start = self.choices_section_start + int(self.choices_section_height * 0.15)
+        available_height = self.height - choice_y_start - 20
+        spacing = available_height // max(len(self.available_choices), 1)
+        choice_y = choice_y_start
         
         for i, choice_data in enumerate(self.available_choices):
             choice_button = ChoiceButton(
@@ -350,40 +350,47 @@ class StoryDialogueScreen:
             surface.blit(title_surface, (title_x, title_y))
 
     def _draw_panel_border(self, surface: pygame.Surface) -> None:
-        """Draw DS-style tech border framing the bottom panel (y=500 to y=900)."""
+        """Draw DS-style tech border framing the bottom panel."""
         bracket_color = (220, 100, 20)
         divider_color = (100, 35, 0)
         dot_color = (180, 60, 0)
 
+        top = self.scene_bg_height
+        bottom = self.height
+        panel_h = bottom - top
+        w = self.width
+
         # Outer border
         pygame.draw.rect(surface, self.panel_border_color,
-                         (0, 500, 1600, 400), 2)
+                         (0, top, w, panel_h), 2)
 
         # Inner border (inset 6px)
         pygame.draw.rect(surface, self.panel_border_inner,
-                         (6, 506, 1588, 388), 1)
+                         (6, top + 6, w - 12, panel_h - 12), 1)
 
         # Corner brackets — L-shaped, 20px long, 2px wide
         # Top-left
-        pygame.draw.line(surface, bracket_color, (0, 500), (20, 500), 2)
-        pygame.draw.line(surface, bracket_color, (0, 500), (0, 520), 2)
+        pygame.draw.line(surface, bracket_color, (0, top), (20, top), 2)
+        pygame.draw.line(surface, bracket_color, (0, top), (0, top + 20), 2)
         # Top-right
-        pygame.draw.line(surface, bracket_color, (1580, 500), (1600, 500), 2)
-        pygame.draw.line(surface, bracket_color, (1599, 500), (1599, 520), 2)
+        pygame.draw.line(surface, bracket_color, (w - 20, top), (w, top), 2)
+        pygame.draw.line(surface, bracket_color, (w - 1, top), (w - 1, top + 20), 2)
         # Bottom-left
-        pygame.draw.line(surface, bracket_color, (0, 899), (20, 899), 2)
-        pygame.draw.line(surface, bracket_color, (0, 880), (0, 900), 2)
+        pygame.draw.line(surface, bracket_color, (0, bottom - 1), (20, bottom - 1), 2)
+        pygame.draw.line(surface, bracket_color, (0, bottom - 20), (0, bottom), 2)
         # Bottom-right
-        pygame.draw.line(surface, bracket_color, (1580, 899), (1600, 899), 2)
-        pygame.draw.line(surface, bracket_color, (1599, 880), (1599, 900), 2)
+        pygame.draw.line(surface, bracket_color, (w - 20, bottom - 1), (w, bottom - 1), 2)
+        pygame.draw.line(surface, bracket_color, (w - 1, bottom - 20), (w - 1, bottom), 2)
 
-        # Horizontal divider at y=560 (title / dialogue separator)
-        pygame.draw.line(surface, divider_color, (0, 560), (1600, 560), 1)
-        # Horizontal divider at y=800 (dialogue / choices separator)
-        pygame.draw.line(surface, divider_color, (0, 800), (1600, 800), 1)
+        # Horizontal divider: title / dialogue separator
+        div1 = self.dialogue_section_start
+        pygame.draw.line(surface, divider_color, (0, div1), (w, div1), 1)
+        # Horizontal divider: dialogue / choices separator
+        div2 = self.choices_section_start
+        pygame.draw.line(surface, divider_color, (0, div2), (w, div2), 1)
 
-        # Decorative dots at midpoints of divider line ends
-        for dot_pos in [(8, 560), (1592, 560), (8, 800), (1592, 800)]:
+        # Decorative dots at divider line ends
+        for dot_pos in [(8, div1), (w - 8, div1), (8, div2), (w - 8, div2)]:
             pygame.draw.circle(surface, dot_color, dot_pos, 3)
 
     def _draw_choices(self, surface: pygame.Surface) -> None:

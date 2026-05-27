@@ -246,7 +246,10 @@ scene.trigger_combat = {
 
 ## GUI rendering conventions
 
-- Resolution: 1600×900
+- Window: `pygame.FULLSCREEN` — actual size read from `pygame.display.get_surface().get_size()` after init. All layout measurements are proportional to `self.width` / `self.height`.
+- Scene bg: 55.5% of height | Title bar: 6.7% | Dialogue: 26.7% | Choices: remainder
+- Choices spacing is dynamic: available height divided evenly across choice count
+- Reference resolution: 1600×900 (proportions hold at any fullscreen size)
 - Draw order is always: background → structure → lenses → overlays → tint
 - All alpha surfaces use `pygame.SRCALPHA`
 - Left eye center: (530, 380) — menu options live here
